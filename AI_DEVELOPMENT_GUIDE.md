@@ -1,4 +1,4 @@
-# AI_DEVELOPMENT_GUIDE.md — SmartPick
+# PRD.md — SmartPick
 
 > **Projeto:** Telecontrol / SmartPick  
 > **Objetivo deste documento:** orientar uma IA de programação a desenvolver o projeto de forma incremental, consistente, testável e alinhada à arquitetura definida.  
