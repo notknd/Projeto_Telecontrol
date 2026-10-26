@@ -1,8 +1,8 @@
 # Acompanhamento do projeto — SmartPick
 
-**Atualizado em:** 20 de outubro de 2026  
-**Branch:** `main`  
-**Status geral:** fundação técnica concluída; funcionalidades do MVP ainda em desenvolvimento.
+**Atualizado em:** 26 de outubro de 2026
+**Branch de integração:** `localhost`
+**Status geral:** fundação técnica concluída; MVP ainda em desenvolvimento e executado localmente como prioridade.
 
 ## Visão geral
 
@@ -23,10 +23,10 @@ Nesta primeira etapa, foi criada a base executável e documentada do projeto. O 
 
 ### Infraestrutura e configuração
 
-- `compose.yaml` define os serviços `web`, `api`, `engine` e `db`.
-- PostgreSQL usa o volume nomeado `postgres_data`, preservando dados entre reinicializações normais.
-- Cada aplicação possui seu Dockerfile.
-- `.env.example` documenta as variáveis de ambiente necessárias.
+- A branch `localhost` estabelece o desenvolvimento nativo como fluxo oficial: web, API e motor usam `127.0.0.1`.
+- `.env.example` documenta portas, `ENGINE_URL` local e a futura `DATABASE_URL` do PostgreSQL local.
+- `scripts/start-local.ps1` abre os três serviços locais e `scripts/test-local.ps1` executa a suíte nativa.
+- `compose.yaml` e Dockerfiles foram preservados apenas para a fase posterior de implantação.
 - `.gitignore` protege variáveis locais, dependências, artefatos de build e caches Python.
 - O motor FastAPI não expõe porta ao host e será acessado internamente pela API através de `http://engine:8000`.
 
@@ -62,7 +62,7 @@ Foi criada uma página Vue mínima que identifica que a fundação está pronta.
 | `git diff --check` | Aprovada | Nenhum erro de espaços em branco no patch. |
 | Testes FastAPI | Não executados | O ambiente de desenvolvimento não tinha FastAPI nem suporte a `venv`. |
 | Build/typecheck Node.js | Não executados | Node.js e npm não estavam instalados no ambiente. |
-| Docker Compose | Não executado | Docker não estava instalado no ambiente. |
+| Docker Compose | Adiado | Não faz parte da validação do MVP enquanto o fluxo localhost é a referência. |
 
 ### Validação do ambiente — 25 de outubro de 2026
 
@@ -71,9 +71,9 @@ Foi criada uma página Vue mínima que identifica que a fundação está pronta.
 | API: `npm run typecheck`, `npm test` e `npm run build` | Aprovada | O endpoint de saúde foi testado. |
 | Motor: `pytest` | Aprovada | Um teste de saúde aprovado; há avisos de depreciação das dependências em Python 3.14. |
 | Frontend: `npm run typecheck` e `npm run build` | Aprovada | A configuração TypeScript foi corrigida para incluir os tipos do Node e as bibliotecas necessárias ao Vite. |
-| Docker Compose | Não executado | Docker Desktop não estava instalado neste ambiente. Deve ser validado em uma máquina da equipe com Docker. |
+| Docker Compose | Adiado | Será validado apenas depois de o fluxo local completo do MVP estar aprovado. |
 
-As verificações não executadas não foram consideradas aprovadas; elas devem ser realizadas em um ambiente com as dependências necessárias antes de considerar a fundação validada em execução.
+As verificações não executadas não foram consideradas aprovadas. A prioridade atual é validar o fluxo completo nativo em `localhost`; Docker e publicação serão tratados como uma etapa de implantação posterior.
 
 ## Pendências do MVP
 

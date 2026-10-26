@@ -27,7 +27,9 @@ services:
       context: ./services/api
     environment:
       PORT: ${API_PORT:-3000}
-      ENGINE_URL: ${ENGINE_URL:-http://engine:8000}
+      HOST: 0.0.0.0
+      # Docker uses the internal service DNS; the native .env keeps 127.0.0.1.
+      ENGINE_URL: http://engine:8000
       DATABASE_URL: postgresql://${POSTGRES_USER:-smartpick}:${POSTGRES_PASSWORD:-change-me-for-local-development}@db:5432/${POSTGRES_DB:-smartpick}?schema=public
     depends_on:
       db:

@@ -4,6 +4,8 @@
 
 `GET /health`
 
+Durante o desenvolvimento local: `http://127.0.0.1:3000/health`.
+
 Resposta de sucesso (`200`):
 
 ```json
@@ -13,6 +15,8 @@ Resposta de sucesso (`200`):
 ## Saúde do motor interno
 
 `GET /health`
+
+Durante o desenvolvimento local: `http://127.0.0.1:8000/health`.
 
 Resposta de sucesso (`200`):
 

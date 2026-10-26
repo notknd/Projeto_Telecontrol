@@ -1,150 +1,133 @@
-# Ambiente de desenvolvimento
+# Desenvolvimento local
 
-Este guia define a mesma forma de executar o SmartPick para toda a equipe.
-Use **um** dos fluxos abaixo por vez: Docker Compose (recomendado) ou execução nativa. O Docker Compose inicia todos os componentes juntos e evita diferenças entre computadores.
+Esta página define o fluxo oficial do SmartPick enquanto o MVP estiver em construção: tudo roda nativamente em `localhost`, sem Docker, Cloudflare, túnel ou serviço externo. A branch de integração é `localhost`; toda nova branch de tarefa deve partir dela.
 
 ## Pré-requisitos
 
 | Ferramenta | Uso | Versão recomendada |
 | --- | --- | --- |
-| Git | Obter e atualizar o repositório | versão atual |
-| Docker Desktop | Fluxo recomendado; inclui Docker Compose | versão atual, em execução |
-| Node.js | Execução nativa de API e web | 22 LTS |
-| Python | Execução nativa do motor | 3.13 |
+| Git | Obter e compartilhar o código | versão atual |
+| Node.js | API e frontend | 22 LTS |
+| Python | Motor de rotas | 3.13+ |
+| PostgreSQL | Banco local para o MVP | 17 |
 
-No Windows, após instalar o Docker Desktop, abra-o e espere o status indicar que o mecanismo está em execução. No PowerShell, confirme:
+Confirme as ferramentas instaladas:
 
 ```powershell
 git --version
-docker --version
-docker compose version
 node --version
+npm --version
 python --version
+psql --version
 ```
+
+> Docker Desktop e Cloudflare **não** são pré-requisitos desta fase.
 
 ## Primeiro acesso
 
 ```powershell
 git clone https://github.com/notknd/Projeto_Telecontrol.git
 cd Projeto_Telecontrol
+git switch localhost
 Copy-Item .env.example .env
 ```
 
-Edite somente o arquivo `.env` local para trocar `POSTGRES_PASSWORD`. O arquivo contém configuração local e nunca deve ser enviado ao Git.
+O `.env` é exclusivamente local. Não inclua senhas, tokens ou o seu conteúdo em commits, PRs ou conversas.
 
-## Fluxo recomendado: Docker Compose
+## Banco de dados local
 
-Na raiz do repositório:
+O banco será usado quando a issue #6 (Prisma e migração) for entregue. Instale PostgreSQL localmente e crie o usuário e banco com os mesmos valores do `.env`:
 
 ```powershell
-docker compose up --build
+psql -U postgres -c "CREATE ROLE smartpick LOGIN PASSWORD 'change-this-local-password';"
+psql -U postgres -c "CREATE DATABASE smartpick OWNER smartpick;"
 ```
 
-Na primeira execução, o download das imagens e a instalação das dependências podem levar alguns minutos. Deixe esse terminal aberto enquanto desenvolve.
+Se já existirem, não repita esses comandos. Quando o schema Prisma estiver disponível, as instruções de migração e seed serão acrescentadas nesta página.
 
-| Serviço | Endereço/uso |
+## Iniciar todos os serviços
+
+Na raiz do projeto:
+
+```powershell
+.\scripts\start-local.ps1
+```
+
+Na primeira vez, o script instala dependências Node, cria o ambiente virtual Python e instala os requisitos do motor. Depois abre três janelas de PowerShell, uma para cada serviço. Para reiniciar sem reinstalar dependências, use:
+
+```powershell
+.\scripts\start-local.ps1 -SkipInstall
+```
+
+| Serviço | Endereço |
 | --- | --- |
-| Frontend Vue | http://localhost:5173 |
-| API Fastify | http://localhost:3000/health |
-| Motor FastAPI | acessível somente pela rede interna do Compose |
-| PostgreSQL | acessível somente pela rede interna do Compose |
+| Frontend Vue | http://127.0.0.1:5173 |
+| API Fastify | http://127.0.0.1:3000/health |
+| Motor FastAPI | http://127.0.0.1:8000/health |
+| PostgreSQL | `127.0.0.1:5432` |
 
-Verificações de saúde:
-
-```powershell
-Invoke-RestMethod http://localhost:3000/health
-docker compose ps
-docker compose logs -f api
-```
-
-Para parar os serviços, use:
+Confirme a saúde dos serviços antes de desenvolver:
 
 ```powershell
-docker compose down
+Invoke-RestMethod http://127.0.0.1:3000/health
+Invoke-RestMethod http://127.0.0.1:8000/health
 ```
 
-Não use `docker compose down -v` no trabalho normal: esse comando remove o volume `postgres_data` e apaga os dados locais do PostgreSQL.
+Para parar, pressione `Ctrl+C` em cada uma das três janelas abertas pelo script.
 
-## Execução nativa (alternativa sem Docker)
+## Execução manual
 
-Este fluxo executa API, motor e frontend em três terminais, a partir da raiz do repositório.
-
-### Terminal 1 — API Fastify
-
-```powershell
-Set-Location services/api
-npm install
-npm run dev
-```
-
-### Terminal 2 — Motor FastAPI
-
-```powershell
-Set-Location services/engine
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-pip install -r requirements-dev.txt
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-Se o PowerShell bloquear a ativação, use apenas naquele terminal:
-
-```powershell
-Set-ExecutionPolicy -Scope Process Bypass
-```
-
-### Terminal 3 — Frontend Vue
-
-```powershell
-Set-Location apps/web
-npm install
-npm run dev
-```
-
-> O PostgreSQL ainda precisa estar disponível para as próximas etapas que usarem Prisma. Até lá, a fundação atual não consulta o banco durante a execução nativa.
-
-## Verificações antes de abrir um pull request
-
-Execute somente os comandos relativos aos serviços modificados:
+Se precisar depurar somente um serviço, use terminais separados.
 
 ```powershell
 # API
 Set-Location services/api
-npm run typecheck
-npm test
-npm run build
+npm install
+npm run dev
 
 # Motor
 Set-Location services/engine
-.\.venv\Scripts\Activate.ps1
-pytest
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 
 # Frontend
 Set-Location apps/web
-npm run typecheck
-npm run build
+npm install
+npm run dev
 ```
 
-Registre no pull request os comandos executados e qualquer verificação que não foi possível executar.
+## Testes obrigatórios antes do pull request
+
+Execute na raiz:
+
+```powershell
+.\scripts\test-local.ps1
+```
+
+O script valida typecheck, testes e build da API; testes do motor; typecheck e build do frontend; e `git diff --check`. Registre no PR qualquer verificação que não foi possível executar.
+
+O teste manual do MVP, quando os módulos existirem, deve cobrir: criar pedido → calcular rota → iniciar coleta → registrar produtos → concluir pedido → consultar histórico.
 
 ## Trabalho pelo app ChatGPT para PC
 
-1. Atualize sua branch local antes de iniciar: `git pull origin main`.
-2. Crie uma conversa/tarefa para a issue que lhe foi atribuída e informe o número da issue, por exemplo: `Implementar a issue #15 do SmartPick`.
-3. Peça para o app inspecionar os arquivos relacionados e implementar somente o escopo da issue.
-4. Trabalhe em uma branch própria, como `feature/issue-15-dijkstra`.
-5. Antes do PR, execute as verificações desta página e peça uma revisão do diff.
-6. No PR, inclua `Closes #NUMERO_DA_ISSUE` na descrição para o GitHub encerrar a issue após o merge.
+1. Atualize a branch de integração: `git switch localhost` e `git pull origin localhost`.
+2. Crie sua branch a partir dela, por exemplo `feature/issue-15-dijkstra`.
+3. Abra uma conversa/tarefa para a issue e informe seu número e os arquivos envolvidos.
+4. Peça alterações restritas ao escopo da issue e revise o diff antes de commitar.
+5. Execute `.\scripts\test-local.ps1`, envie sua branch e abra um PR para `localhost`.
+6. Use `Closes #NUMERO` somente quando o trabalho realmente cumprir os critérios de aceite.
 
-Não coloque senhas, tokens ou o conteúdo do `.env` em mensagens, commits ou pull requests.
+## Docker, Cloudflare e implantação
+
+Esses itens são deliberadamente posteriores ao MVP. `compose.yaml` é preservado como referência de implantação, mas não é parte da rotina de desenvolvimento, testes ou demonstração atual. Quando o fluxo local completo estiver aprovado, a equipe definirá uma configuração de produção separada, sem alterar a referência local por acidente.
 
 ## Problemas comuns
 
 | Sintoma | Ação |
 | --- | --- |
-| A porta 3000 ou 5173 já está em uso | Altere `API_PORT` ou `WEB_PORT` no `.env` e reinicie o Compose. |
-| `docker` não é reconhecido | Instale/inicie o Docker Desktop e abra um novo PowerShell. |
-| A API não sobe no Compose | Execute `docker compose logs api`; confirme que `engine` e `db` estão saudáveis com `docker compose ps`. |
-| Dependências Node estão inconsistentes | Apague apenas o `node_modules` do serviço afetado e execute `npm install` novamente. |
-| O ambiente Python não ativa | Execute `Set-ExecutionPolicy -Scope Process Bypass` e tente de novo no mesmo terminal. |
+| `psql` não é reconhecido | Instale PostgreSQL e abra um novo PowerShell. |
+| Porta 3000, 5173 ou 8000 ocupada | Feche o processo local que a usa antes de iniciar o script. |
+| O ambiente Python não inicia | Execute `Set-ExecutionPolicy -Scope Process Bypass` e tente novamente no mesmo terminal. |
+| Dependências Node inconsistentes | Apague somente o `node_modules` do serviço afetado e execute `npm install` novamente. |
+| O frontend não abre | Confirme que o terminal do Vite está ativo e acesse `http://127.0.0.1:5173`. |
