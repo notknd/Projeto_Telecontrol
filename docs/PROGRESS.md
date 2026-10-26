@@ -51,6 +51,7 @@ Foi criada uma página Vue mínima que identifica que a fundação está pronta.
 - `docs/ARCHITECTURE.md`: responsabilidades e comunicação entre serviços.
 - `docs/API.md`: contratos dos endpoints de saúde.
 - `docs/IMPLEMENTATION_PLAN.md`: auditoria inicial e plano de execução.
+- `docs/DEVELOPMENT.md`: ambiente padronizado da equipe, execução, verificações e fluxo de trabalho.
 
 ## Verificações executadas
 
@@ -62,6 +63,15 @@ Foi criada uma página Vue mínima que identifica que a fundação está pronta.
 | Testes FastAPI | Não executados | O ambiente de desenvolvimento não tinha FastAPI nem suporte a `venv`. |
 | Build/typecheck Node.js | Não executados | Node.js e npm não estavam instalados no ambiente. |
 | Docker Compose | Não executado | Docker não estava instalado no ambiente. |
+
+### Validação do ambiente — 25 de outubro de 2026
+
+| Verificação | Resultado | Observação |
+| --- | --- | --- |
+| API: `npm run typecheck`, `npm test` e `npm run build` | Aprovada | O endpoint de saúde foi testado. |
+| Motor: `pytest` | Aprovada | Um teste de saúde aprovado; há avisos de depreciação das dependências em Python 3.14. |
+| Frontend: `npm run typecheck` e `npm run build` | Aprovada | A configuração TypeScript foi corrigida para incluir os tipos do Node e as bibliotecas necessárias ao Vite. |
+| Docker Compose | Não executado | Docker Desktop não estava instalado neste ambiente. Deve ser validado em uma máquina da equipe com Docker. |
 
 As verificações não executadas não foram consideradas aprovadas; elas devem ser realizadas em um ambiente com as dependências necessárias antes de considerar a fundação validada em execução.
 

@@ -6,6 +6,10 @@ Aplicação para otimizar rotas de coleta de produtos em armazéns. A arquitetur
 
 Esta primeira entrega estabelece a fundação dos serviços. Ainda não há CRUD, banco modelado ou cálculo de rotas; eles serão implementados incrementalmente.
 
+## Ambiente da equipe
+
+O fluxo padrão da equipe usa Docker Compose. Consulte o [guia de desenvolvimento](docs/DEVELOPMENT.md) para instalação, execução nativa, verificações antes do pull request, resolução de problemas e o fluxo de trabalho no app ChatGPT para PC.
+
 ## Execução com Docker
 
 1. Copie `.env.example` para `.env` e substitua a senha local de demonstração.
