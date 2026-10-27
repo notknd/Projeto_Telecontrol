@@ -11,4 +11,4 @@ O fluxo previsto é `web → api → engine` e `api → db`. O motor não public
 
 ## Estado da fundação
 
-Nesta etapa existem somente os endpoints de saúde da API e do motor. Produtos, pedidos, Prisma e o cálculo de rotas ainda não foram implementados.
+API e motor ainda expõem somente endpoints de saúde. A API já possui um cliente HTTP configurável para o contrato interno de cálculo, com validação da resposta e tratamento de timeout e indisponibilidade. O endpoint de cálculo no FastAPI e o fluxo de pedidos/rotas ainda não foram implementados; portanto, a chamada ainda não está ligada a uma rota de negócio nem a persistência.
