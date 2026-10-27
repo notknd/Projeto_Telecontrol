@@ -1,8 +1,8 @@
 # Acompanhamento do projeto — SmartPick
 
-**Atualizado em:** 20 de outubro de 2026  
-**Branch:** `main`  
-**Status geral:** fundação técnica concluída; funcionalidades do MVP ainda em desenvolvimento.
+**Atualizado em:** 26 de outubro de 2026
+**Branch de integração:** `localhost`
+**Status geral:** fundação técnica concluída; MVP ainda em desenvolvimento e executado localmente como prioridade.
 
 ## Visão geral
 
@@ -23,10 +23,10 @@ Nesta primeira etapa, foi criada a base executável e documentada do projeto. O 
 
 ### Infraestrutura e configuração
 
-- `compose.yaml` define os serviços `web`, `api`, `engine` e `db`.
-- PostgreSQL usa o volume nomeado `postgres_data`, preservando dados entre reinicializações normais.
-- Cada aplicação possui seu Dockerfile.
-- `.env.example` documenta as variáveis de ambiente necessárias.
+- A branch `localhost` estabelece o desenvolvimento nativo como fluxo oficial: web, API e motor usam `127.0.0.1`.
+- `.env.example` documenta portas, `ENGINE_URL` local e a futura `DATABASE_URL` do PostgreSQL local.
+- `scripts/start-local.ps1` abre os três serviços locais e `scripts/test-local.ps1` executa a suíte nativa.
+- `compose.yaml` e Dockerfiles foram preservados apenas para a fase posterior de implantação.
 - `.gitignore` protege variáveis locais, dependências, artefatos de build e caches Python.
 - O motor FastAPI não expõe porta ao host e será acessado internamente pela API através de `http://engine:8000`.
 
@@ -51,6 +51,23 @@ Foi criada uma página Vue mínima que identifica que a fundação está pronta.
 - `docs/ARCHITECTURE.md`: responsabilidades e comunicação entre serviços.
 - `docs/API.md`: contratos dos endpoints de saúde.
 - `docs/IMPLEMENTATION_PLAN.md`: auditoria inicial e plano de execução.
+- `docs/DEVELOPMENT.md`: ambiente padronizado da equipe, execução, verificações e fluxo de trabalho.
+
+## Semana 01 — modelagem de domínio
+
+**Concluída em:** 27 de outubro de 2026
+**Responsável:** Kendy
+
+Foram concluídas as entregas de modelagem das issues #2 e #4. A issue #1, de estrutura inicial do repositório, já estava fechada.
+
+- `docs/WAREHOUSE_MODEL.md` define a representação do armazém: tipos de nó, códigos estáveis, coordenadas em metros, entrada, saída e conexões dirigidas com pesos transitáveis.
+- `docs/DATA_MODEL.md` define as entidades, cardinalidades, estados, invariantes de integridade, índices e preservação de histórico para produtos, pedidos, rotas e coletas.
+- Foram incluídas entidades de apoio (`RouteStep`, `RouteStopItem` e `CollectionItem`) para preservar o percurso completo, agrupar itens da mesma posição e manter o histórico da execução.
+- A API ficou definida como responsável por validar e montar o grafo persistido; o motor recebe somente uma cópia validada e o frontend não infere conexões visualmente.
+
+**Próximo passo:** revisão das decisões com os responsáveis pelo schema e pelo motor. Após essa revisão, a issue #6 pode converter o modelo em Prisma, migração e seed idempotente.
+
+**Publicação e acompanhamento:** a entrega está publicada na branch `feature/issue-2-4-modelagem`. As cards das issues #2 e #4 estão em `In review` no GitHub Project; as issues continuam abertas até a revisão de integração ser concluída.
 
 ## Verificações executadas
 
@@ -61,16 +78,24 @@ Foi criada uma página Vue mínima que identifica que a fundação está pronta.
 | `git diff --check` | Aprovada | Nenhum erro de espaços em branco no patch. |
 | Testes FastAPI | Não executados | O ambiente de desenvolvimento não tinha FastAPI nem suporte a `venv`. |
 | Build/typecheck Node.js | Não executados | Node.js e npm não estavam instalados no ambiente. |
-| Docker Compose | Não executado | Docker não estava instalado no ambiente. |
+| Docker Compose | Adiado | Não faz parte da validação do MVP enquanto o fluxo localhost é a referência. |
 
-As verificações não executadas não foram consideradas aprovadas; elas devem ser realizadas em um ambiente com as dependências necessárias antes de considerar a fundação validada em execução.
+### Validação do ambiente — 25 de outubro de 2026
+
+| Verificação | Resultado | Observação |
+| --- | --- | --- |
+| API: `npm run typecheck`, `npm test` e `npm run build` | Aprovada | O endpoint de saúde foi testado. |
+| Motor: `pytest` | Aprovada | Um teste de saúde aprovado; há avisos de depreciação das dependências em Python 3.14. |
+| Frontend: `npm run typecheck` e `npm run build` | Aprovada | A configuração TypeScript foi corrigida para incluir os tipos do Node e as bibliotecas necessárias ao Vite. |
+| Docker Compose | Adiado | Será validado apenas depois de o fluxo local completo do MVP estar aprovado. |
+
+As verificações não executadas não foram consideradas aprovadas. A prioridade atual é validar o fluxo completo nativo em `localhost`; Docker e publicação serão tratados como uma etapa de implantação posterior.
 
 ## Pendências do MVP
 
-- Definir as entidades do domínio e o schema Prisma.
+- Converter o modelo de dados aprovado em schema Prisma.
 - Criar migrações e um seed repetível de demonstração.
 - Implementar CRUD mínimo de produtos e pedidos.
-- Modelar o grafo do armazém.
 - Implementar Dijkstra, testes determinísticos e a heurística de vizinho mais próximo.
 - Criar o contrato interno de cálculo de rotas.
 - Integrar API Fastify e motor FastAPI com timeout, validação e tratamento de falhas.
@@ -80,4 +105,4 @@ As verificações não executadas não foram consideradas aprovadas; elas devem 
 
 ## Próxima etapa recomendada
 
-Implementar o modelo de dados: definir as entidades `Product`, `Order`, `OrderItem`, `WarehouseNode`, `WarehouseEdge`, `Route` e `RouteStop`; depois criar o schema Prisma, sua primeira migração e um seed de demonstração idempotente. Essa etapa estabelece a fonte oficial de dados necessária antes do CRUD e da integração com o motor de rotas.
+As decisões de domínio da Semana 01 foram detalhadas em [WAREHOUSE_MODEL.md](WAREHOUSE_MODEL.md) e [DATA_MODEL.md](DATA_MODEL.md): nós, conexões, estados, cardinalidades e regras de integridade. O próximo passo é transformar esse modelo em schema Prisma, primeira migração e seed idempotente; esses artefatos ainda não foram implementados.
