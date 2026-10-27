@@ -53,6 +53,20 @@ Foi criada uma página Vue mínima que identifica que a fundação está pronta.
 - `docs/IMPLEMENTATION_PLAN.md`: auditoria inicial e plano de execução.
 - `docs/DEVELOPMENT.md`: ambiente padronizado da equipe, execução, verificações e fluxo de trabalho.
 
+## Semana 01 — modelagem de domínio
+
+**Concluída em:** 27 de outubro de 2026
+**Responsável:** Kendy
+
+Foram concluídas as entregas de modelagem das issues #2 e #4. A issue #1, de estrutura inicial do repositório, já estava fechada.
+
+- `docs/WAREHOUSE_MODEL.md` define a representação do armazém: tipos de nó, códigos estáveis, coordenadas em metros, entrada, saída e conexões dirigidas com pesos transitáveis.
+- `docs/DATA_MODEL.md` define as entidades, cardinalidades, estados, invariantes de integridade, índices e preservação de histórico para produtos, pedidos, rotas e coletas.
+- Foram incluídas entidades de apoio (`RouteStep`, `RouteStopItem` e `CollectionItem`) para preservar o percurso completo, agrupar itens da mesma posição e manter o histórico da execução.
+- A API ficou definida como responsável por validar e montar o grafo persistido; o motor recebe somente uma cópia validada e o frontend não infere conexões visualmente.
+
+**Próximo passo:** revisão das decisões com os responsáveis pelo schema e pelo motor. Após essa revisão, a issue #6 pode converter o modelo em Prisma, migração e seed idempotente.
+
 ## Verificações executadas
 
 | Verificação | Resultado | Observação |
@@ -77,10 +91,9 @@ As verificações não executadas não foram consideradas aprovadas. A prioridad
 
 ## Pendências do MVP
 
-- Definir as entidades do domínio e o schema Prisma.
+- Converter o modelo de dados aprovado em schema Prisma.
 - Criar migrações e um seed repetível de demonstração.
 - Implementar CRUD mínimo de produtos e pedidos.
-- Modelar o grafo do armazém.
 - Implementar Dijkstra, testes determinísticos e a heurística de vizinho mais próximo.
 - Criar o contrato interno de cálculo de rotas.
 - Integrar API Fastify e motor FastAPI com timeout, validação e tratamento de falhas.
@@ -90,4 +103,4 @@ As verificações não executadas não foram consideradas aprovadas. A prioridad
 
 ## Próxima etapa recomendada
 
-Implementar o modelo de dados: definir as entidades `Product`, `Order`, `OrderItem`, `WarehouseNode`, `WarehouseEdge`, `Route` e `RouteStop`; depois criar o schema Prisma, sua primeira migração e um seed de demonstração idempotente. Essa etapa estabelece a fonte oficial de dados necessária antes do CRUD e da integração com o motor de rotas.
+As decisões de domínio da Semana 01 foram detalhadas em [WAREHOUSE_MODEL.md](WAREHOUSE_MODEL.md) e [DATA_MODEL.md](DATA_MODEL.md): nós, conexões, estados, cardinalidades e regras de integridade. O próximo passo é transformar esse modelo em schema Prisma, primeira migração e seed idempotente; esses artefatos ainda não foram implementados.

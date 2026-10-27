@@ -15,4 +15,4 @@
 
 ## Próxima etapa recomendada
 
-Definir o modelo do armazém e as entidades persistentes, criando o schema Prisma, uma migração e um seed repetível antes de implementar o CRUD.
+As decisões de modelagem estão registradas em [WAREHOUSE_MODEL.md](WAREHOUSE_MODEL.md) e [DATA_MODEL.md](DATA_MODEL.md). A próxima implementação é converter esse modelo em schema Prisma, criar a migração e um seed repetível antes do CRUD.
