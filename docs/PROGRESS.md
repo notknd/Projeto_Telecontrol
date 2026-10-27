@@ -67,6 +67,8 @@ Foram concluídas as entregas de modelagem das issues #2 e #4. A issue #1, de es
 
 **Próximo passo:** revisão das decisões com os responsáveis pelo schema e pelo motor. Após essa revisão, a issue #6 pode converter o modelo em Prisma, migração e seed idempotente.
 
+**Publicação e acompanhamento:** a entrega está publicada na branch `feature/issue-2-4-modelagem`. As cards das issues #2 e #4 estão em `In review` no GitHub Project; as issues continuam abertas até a revisão de integração ser concluída.
+
 ## Verificações executadas
 
 | Verificação | Resultado | Observação |
