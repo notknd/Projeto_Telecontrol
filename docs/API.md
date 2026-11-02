@@ -25,3 +25,32 @@ Resposta de sucesso (`200`):
 ```
 
 O contrato público de negócio, sob `/api/v1`, será adicionado antes do CRUD e permanecerá separado do contrato interno de cálculo.
+
+## Cadastro temporário de produtos
+
+`POST /api/v1/products`
+
+Enquanto a migração do banco não está disponível, este endpoint persiste os
+produtos em um arquivo JSON local. A variável `PRODUCTS_FILE_PATH` permite
+escolher outro caminho; o padrão é `data/products.json`.
+
+Exemplo de requisição:
+
+```json
+{
+  "sku": "CX-01",
+  "name": "Caixa organizadora",
+  "stock_quantity": 12,
+  "location": "A-01-02",
+  "weight_kg": 1.5,
+  "category": "Organização"
+}
+```
+
+Resposta de sucesso (`201`): inclui os dados enviados, `id`, `is_active` e
+`created_at`. O SKU é convertido para maiúsculas e não pode ser repetido.
+
+Erros:
+
+- `422`: campo ausente, vazio, ou quantidade/peso negativo;
+- `409`: SKU já cadastrado.
