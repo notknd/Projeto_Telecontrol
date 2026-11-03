@@ -39,6 +39,22 @@ Para validar a composição Docker já em execução, incluindo saúde dos quatr
 
 Acrescente `-Build` para reconstruir as imagens antes da verificação.
 
+## Roteiro de demonstração local
+
+Para uma apresentação, execute os comandos abaixo na ordem indicada:
+
+```powershell
+docker compose up --build -d
+.\scripts\test-compose.ps1
+docker compose ps
+```
+
+O primeiro comando inicia os quatro componentes no computador; o segundo comprova que o banco, a API, o motor e o frontend respondem, que a migração Prisma foi aplicada e que a seed pode rodar novamente sem duplicar dados. O terceiro mostra os contêineres ativos ao vivo.
+
+Mostre no navegador `http://127.0.0.1:5173`, `http://127.0.0.1:3000/health` e `http://127.0.0.1:8000/health`. A documentação interativa do motor fica em `http://127.0.0.1:8000/docs`.
+
+> A demonstração prova a infraestrutura integrada e a massa de dados versionada. O fluxo visual pedido → rota → coleta ainda é uma próxima etapa do MVP, portanto não deve ser apresentado como concluído.
+
 ## Docker e publicação
 
 `compose.yaml` é a forma reproduzível de executar o MVP local completo. Cloudflare não faz parte da arquitetura nem do fluxo desta branch.

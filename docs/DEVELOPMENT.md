@@ -145,6 +145,41 @@ Para a prova integrada com Docker, execute também:
 
 Ela inicia a composição se necessário, valida saúde do PostgreSQL/API/motor/frontend, confere o histórico Prisma e roda a seed uma segunda vez. A execução não remove volumes nem apaga a massa de demonstração.
 
+## Roteiro para apresentação local
+
+Use este roteiro antes e durante a demonstração ao professor:
+
+```powershell
+# 1. Iniciar todo o ambiente e aplicar migração/seed automaticamente.
+docker compose up --build -d
+
+# 2. Executar a prova automatizada de integração local.
+.\scripts\test-compose.ps1
+
+# 3. Exibir que os serviços continuam ativos.
+docker compose ps
+```
+
+O teste deve terminar com `Suíte da composição local concluída com sucesso.` e informar `7|12|3|3`, que significa, respectivamente, 7 nós, 12 arestas, 3 produtos e 3 pedidos após rodar a seed novamente. Isso demonstra que os dados de teste são repetíveis, sem duplicação.
+
+Abra os seguintes endereços durante a apresentação:
+
+| Endereço | O que comprova |
+| --- | --- |
+| `http://127.0.0.1:5173` | O frontend Vue é servido localmente. |
+| `http://127.0.0.1:3000/health` | A API Fastify responde com `status: ok`. |
+| `http://127.0.0.1:8000/health` | O motor FastAPI responde com `status: ok`. |
+| `http://127.0.0.1:8000/docs` | Os contratos HTTP disponíveis no motor podem ser inspecionados e testados. |
+
+Também é possível mostrar as respostas de saúde no terminal:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:3000/health
+Invoke-RestMethod http://127.0.0.1:8000/health
+```
+
+Explique o limite com precisão: nesta etapa estão prontos os serviços, o banco migrado e os dados de demonstração. O fluxo completo de pedido, cálculo de rota e coleta visual ainda depende das próximas issues e não é uma funcionalidade concluída.
+
 O teste manual do MVP, quando os módulos existirem, deve cobrir: criar pedido → calcular rota → iniciar coleta → registrar produtos → concluir pedido → consultar histórico.
 
 ## Trabalho pelo app ChatGPT para PC
