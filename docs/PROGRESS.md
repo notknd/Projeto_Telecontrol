@@ -1,108 +1,55 @@
 # Acompanhamento do projeto — SmartPick
 
-**Atualizado em:** 26 de outubro de 2026
-**Branch de integração:** `localhost`
-**Status geral:** fundação técnica concluída; MVP ainda em desenvolvimento e executado localmente como prioridade.
+**Atualizado em:** 3 de novembro de 2026
+**Branch de integração efetiva:** `main`
+**Status geral:** fundação, modelagem e persistência inicial entregues; o MVP ainda precisa conectar os casos de uso, o motor e a interface.
 
-## Visão geral
+## Fonte de verdade e alinhamento
 
-O SmartPick otimiza rotas de coleta em armazéns. A arquitetura definida utiliza Vue 3 no frontend, Node.js/Fastify na API principal, Python/FastAPI no motor de rotas e PostgreSQL para persistência.
+O repositório remoto declara `main` como branch padrão e ela contém as entregas já mescladas. Referências antigas a `localhost` em documentação e Notion foram substituídas por `main`; `localhost` permanece apenas como branch histórica, no commit `2448406`.
 
-Nesta primeira etapa, foi criada a base executável e documentada do projeto. O objetivo foi preparar os serviços de forma independente, sem antecipar regras de negócio, CRUD ou algoritmos antes de definir o modelo de dados e os contratos necessários.
+| Item | Estado confirmado | Evidência |
+| --- | --- | --- |
+| Fundação do repositório (#1) | Concluída | Issue fechada em 05/10/2026. |
+| Modelo do armazém (#2, Kendy) | Concluída e mesclada | PR #53; commits `524456e` e `a212fe2`; `docs/WAREHOUSE_MODEL.md`. |
+| Modelo de dados (#4, Kendy) | Concluída e mesclada | PR #53; `docs/DATA_MODEL.md`. |
+| Grafo do armazém (#3, Nascimento-tech) | Concluída e mesclada | PR #54; commit `c9011e6`. Não é uma entrega atribuída a Kendy. |
+| Cadastro temporário de produtos | Existe no motor FastAPI | Está fora do fluxo alvo do PRD; a persistência de negócio deve migrar para a API Node/Prisma em etapa própria. |
 
-## Entregue
+## Semana 01 — entregas de Kendy
 
-### Estrutura dos serviços
+As issues #2 e #4 definiram a base comum para persistência, algoritmo e mapa: tipos de nó, entrada e saída únicas, arestas dirigidas em metros, entidades de pedidos/rotas/coletas, estados, cardinalidades, índices e preservação de histórico. Ambas estão fechadas no GitHub e concluídas no Notion.
 
-| Componente | Caminho | Tecnologia | Estado |
+## Semana 02 — banco e dados de demonstração
+
+O trabalho está na branch `feature/issue-6-7-prisma-seed`, baseada em `main` no commit `79e57a8`.
+
+| Issue | Entrega | Estado | Evidência |
 | --- | --- | --- | --- |
-| Frontend | `apps/web` | Vue 3, TypeScript e Vite | Base criada |
-| API principal | `services/api` | Node.js, Fastify e TypeScript | Base criada |
-| Motor de rotas | `services/engine` | Python e FastAPI | Base criada |
-| Banco de dados | `compose.yaml` | PostgreSQL | Configurado no Compose |
+| #6 — schema e migração | `schema.prisma`, migração inicial PostgreSQL, cliente Prisma e scripts de banco | Em andamento: implementação pronta, aguardando aplicação em PostgreSQL local vazio | `services/api/prisma/` e `docs/DATABASE.md`. |
+| #7 — seed idempotente | Layout, arestas, produtos e três pedidos de demonstração via `upsert` | Em andamento: implementação pronta, aguardando execução dupla contra PostgreSQL local | `services/api/prisma/seed.ts`. |
 
-### Infraestrutura e configuração
+### Verificações executadas nesta branch
 
-- A branch `localhost` estabelece o desenvolvimento nativo como fluxo oficial: web, API e motor usam `127.0.0.1`.
-- `.env.example` documenta portas, `ENGINE_URL` local e a futura `DATABASE_URL` do PostgreSQL local.
-- `scripts/start-local.ps1` abre os três serviços locais e `scripts/test-local.ps1` executa a suíte nativa.
-- `compose.yaml` e Dockerfiles foram preservados apenas para a fase posterior de implantação.
-- `.gitignore` protege variáveis locais, dependências, artefatos de build e caches Python.
-- O motor FastAPI não expõe porta ao host e será acessado internamente pela API através de `http://engine:8000`.
+| Verificação | Resultado |
+| --- | --- |
+| `prisma validate` | Aprovada. |
+| `prisma generate` | Aprovada. |
+| Typecheck da API e dos arquivos Prisma | Aprovada. |
+| Build e teste de saúde da API | Aprovados. |
+| `git diff --check` | Aprovado durante a implementação. |
+| Aplicar migração e executar seed duas vezes | Pendente: `psql` e Docker não estão instalados nesta máquina. |
 
-### Saúde dos serviços
+## Próximos passos técnicos
 
-| Serviço | Endpoint | Resposta esperada |
-| --- | --- | --- |
-| API | `GET /health` | `{"status":"ok","service":"api"}` |
-| Motor | `GET /health` | `{"status":"ok","service":"engine"}` |
+1. Instalar/iniciar PostgreSQL local, aplicar `npm run db:migrate` e rodar `npm run db:seed` duas vezes para concluir os critérios verificáveis de #6 e #7.
+2. Conectar o cadastro de produtos à API Node/Fastify e ao Prisma, substituindo o armazenamento temporário do motor Python.
+3. Implementar pedidos e validações transacionais de estoque na API.
+4. Evoluir o motor de rotas com Dijkstra, ordenação das paradas, rota completa e testes determinísticos usando os cenários do seed.
+5. Integrar API e motor por contrato interno; somente depois construir o fluxo de pedidos, mapa, coleta, histórico e comparação no frontend.
 
-O Compose também possui health checks para PostgreSQL, API e motor.
+## Limites e riscos atuais
 
-### Frontend inicial
-
-Foi criada uma página Vue mínima que identifica que a fundação está pronta. Ela não contém, intencionalmente, telas de produtos, pedidos, mapa ou coleta neste estágio.
-
-### Documentação disponível
-
-- `README.md`: objetivo do projeto e instruções de execução.
-- `prd.md`: requisitos de produto.
-- `AI_DEVELOPMENT_GUIDE.md`: diretrizes de desenvolvimento incremental.
-- `docs/ARCHITECTURE.md`: responsabilidades e comunicação entre serviços.
-- `docs/API.md`: contratos dos endpoints de saúde.
-- `docs/IMPLEMENTATION_PLAN.md`: auditoria inicial e plano de execução.
-- `docs/DEVELOPMENT.md`: ambiente padronizado da equipe, execução, verificações e fluxo de trabalho.
-
-## Semana 01 — modelagem de domínio
-
-**Concluída em:** 27 de outubro de 2026
-**Responsável:** Kendy
-
-Foram concluídas as entregas de modelagem das issues #2 e #4. A issue #1, de estrutura inicial do repositório, já estava fechada.
-
-- `docs/WAREHOUSE_MODEL.md` define a representação do armazém: tipos de nó, códigos estáveis, coordenadas em metros, entrada, saída e conexões dirigidas com pesos transitáveis.
-- `docs/DATA_MODEL.md` define as entidades, cardinalidades, estados, invariantes de integridade, índices e preservação de histórico para produtos, pedidos, rotas e coletas.
-- Foram incluídas entidades de apoio (`RouteStep`, `RouteStopItem` e `CollectionItem`) para preservar o percurso completo, agrupar itens da mesma posição e manter o histórico da execução.
-- A API ficou definida como responsável por validar e montar o grafo persistido; o motor recebe somente uma cópia validada e o frontend não infere conexões visualmente.
-
-**Próximo passo:** revisão das decisões com os responsáveis pelo schema e pelo motor. Após essa revisão, a issue #6 pode converter o modelo em Prisma, migração e seed idempotente.
-
-**Publicação e acompanhamento:** a entrega está publicada na branch `feature/issue-2-4-modelagem`. As cards das issues #2 e #4 estão em `In review` no GitHub Project; as issues continuam abertas até a revisão de integração ser concluída.
-
-## Verificações executadas
-
-| Verificação | Resultado | Observação |
-| --- | --- | --- |
-| Compilação sintática Python (`compileall`) | Aprovada | Código do motor e seus testes sem erro sintático. |
-| Validação dos `package.json` | Aprovada | Arquivos JSON da API e do frontend válidos. |
-| `git diff --check` | Aprovada | Nenhum erro de espaços em branco no patch. |
-| Testes FastAPI | Não executados | O ambiente de desenvolvimento não tinha FastAPI nem suporte a `venv`. |
-| Build/typecheck Node.js | Não executados | Node.js e npm não estavam instalados no ambiente. |
-| Docker Compose | Adiado | Não faz parte da validação do MVP enquanto o fluxo localhost é a referência. |
-
-### Validação do ambiente — 25 de outubro de 2026
-
-| Verificação | Resultado | Observação |
-| --- | --- | --- |
-| API: `npm run typecheck`, `npm test` e `npm run build` | Aprovada | O endpoint de saúde foi testado. |
-| Motor: `pytest` | Aprovada | Um teste de saúde aprovado; há avisos de depreciação das dependências em Python 3.14. |
-| Frontend: `npm run typecheck` e `npm run build` | Aprovada | A configuração TypeScript foi corrigida para incluir os tipos do Node e as bibliotecas necessárias ao Vite. |
-| Docker Compose | Adiado | Será validado apenas depois de o fluxo local completo do MVP estar aprovado. |
-
-As verificações não executadas não foram consideradas aprovadas. A prioridade atual é validar o fluxo completo nativo em `localhost`; Docker e publicação serão tratados como uma etapa de implantação posterior.
-
-## Pendências do MVP
-
-- Converter o modelo de dados aprovado em schema Prisma.
-- Criar migrações e um seed repetível de demonstração.
-- Implementar CRUD mínimo de produtos e pedidos.
-- Implementar Dijkstra, testes determinísticos e a heurística de vizinho mais próximo.
-- Criar o contrato interno de cálculo de rotas.
-- Integrar API Fastify e motor FastAPI com timeout, validação e tratamento de falhas.
-- Criar o fluxo de seleção de pedido e cálculo no frontend.
-- Renderizar mapa 2D, rota e progresso da coleta.
-- Registrar e consultar o histórico de coletas e a comparação com rota convencional.
-
-## Próxima etapa recomendada
-
-As decisões de domínio da Semana 01 foram detalhadas em [WAREHOUSE_MODEL.md](WAREHOUSE_MODEL.md) e [DATA_MODEL.md](DATA_MODEL.md): nós, conexões, estados, cardinalidades e regras de integridade. O próximo passo é transformar esse modelo em schema Prisma, primeira migração e seed idempotente; esses artefatos ainda não foram implementados.
+- Sem PostgreSQL local não é possível atestar a aplicação física da migração nem a idempotência contra uma base real; isso não é tratado como aprovado.
+- O modelo exige que a API valide invariantes entre tabelas e transições de estado em transações. O banco já protege chaves, referências e limites numéricos, mas não substitui essas regras de negócio.
+- O frontend, a integração Node → motor e o fluxo de coleta ainda não existem; portanto o MVP não está pronto para demonstração ponta a ponta.

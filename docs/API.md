@@ -26,13 +26,15 @@ Resposta de sucesso (`200`):
 
 O contrato público de negócio, sob `/api/v1`, será adicionado antes do CRUD e permanecerá separado do contrato interno de cálculo.
 
-## Cadastro temporário de produtos
+## Cadastro temporário de produtos no motor
 
 `POST /api/v1/products`
 
-Enquanto a migração do banco não está disponível, este endpoint persiste os
-produtos em um arquivo JSON local. A variável `PRODUCTS_FILE_PATH` permite
-escolher outro caminho; o padrão é `data/products.json`.
+Este endpoint está implementado temporariamente no processo FastAPI do motor e
+persiste os produtos em um arquivo JSON local. A variável `PRODUCTS_FILE_PATH`
+permite escolher outro caminho; o padrão é `data/products.json`. Ele não é o
+contrato final: a próxima etapa deve movê-lo para a API Node/Fastify e persistir
+via Prisma, conforme o PRD.
 
 Exemplo de requisição:
 
