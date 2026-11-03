@@ -54,6 +54,26 @@ Copy-Item .env.example .env
 
 O `.env` é exclusivamente local. Não inclua senhas, tokens ou o seu conteúdo em commits, PRs ou conversas.
 
+## Atualizar a base antes de desenvolver
+
+Toda tarefa nova deve partir da integração mais recente, não de uma branch histórica:
+
+```powershell
+git switch main
+git pull --ff-only origin main
+git switch -c feature/issue-N-descricao
+```
+
+Para avaliar uma entrega em outra branch, compare-a com `main` antes de reutilizar o código. Uma issue fechada não comprova, por si só, que o trabalho está integrado:
+
+```powershell
+git fetch --all --prune
+git merge-base main origin/NOME-DA-BRANCH
+git diff --stat main...origin/NOME-DA-BRANCH
+```
+
+Se não houver ancestral comum, não faça merge direto. Reaplique a mudança sobre `main`, valide os testes e abra uma PR de integração.
+
 ## Banco de dados local
 
 O schema Prisma, a migração inicial e o seed foram entregues nas issues #6 e #7. Instale PostgreSQL localmente e crie o usuário e banco com os mesmos valores do `.env`:
@@ -180,7 +200,7 @@ Invoke-RestMethod http://127.0.0.1:8000/health
 
 Explique o limite com precisão: nesta etapa estão prontos os serviços, o banco migrado e os dados de demonstração. O fluxo completo de pedido, cálculo de rota e coleta visual ainda depende das próximas issues e não é uma funcionalidade concluída.
 
-O teste manual do MVP, quando os módulos existirem, deve cobrir: criar pedido → calcular rota → iniciar coleta → registrar produtos → concluir pedido → consultar histórico.
+O teste manual completo do MVP, após os módulos existirem, deve cobrir: criar pedido → calcular rota → iniciar coleta → registrar produtos → concluir pedido → consultar histórico. No estado atual, a prova integrada cobre infraestrutura, migração e seed; CRUD público, rota e coleta ainda não existem em `main`.
 
 ## Trabalho pelo app ChatGPT para PC
 

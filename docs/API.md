@@ -24,7 +24,7 @@ Resposta de sucesso (`200`):
 {"status":"ok","service":"engine"}
 ```
 
-O contrato público de negócio, sob `/api/v1`, será adicionado antes do CRUD e permanecerá separado do contrato interno de cálculo.
+O contrato público de negócio, sob `/api/v1`, será adicionado antes do CRUD e permanecerá separado do contrato interno de cálculo. A proposta de contrato de rota da issue #49 ainda está fora de `main`; ela não deve ser tomada como endpoint disponível até ser reconstruída/revisada sobre a base atual e integrada.
 
 ## Cadastro temporário de produtos no motor
 
