@@ -24,10 +24,10 @@ No desenvolvimento local, `ENGINE_URL` deve ser `http://127.0.0.1:8000`. A confi
 
 ## Estado da fundação
 
-Nesta etapa existem somente os endpoints de saúde da API e do motor. Produtos, pedidos, Prisma e o cálculo de rotas ainda não foram implementados.
+Nesta etapa, a API expõe saúde e o repositório já contém o schema Prisma, a primeira migração PostgreSQL e a seed de demonstração. As rotas públicas de produtos e pedidos, o cálculo completo e a integração da API com o motor ainda serão implementados incrementalmente.
 
 ## Decisões de domínio aprováveis para a próxima etapa
 
 - O [modelo do armazém](WAREHOUSE_MODEL.md) define nós, conexões dirigidas, coordenadas em metros, origem (`ENTRY`) e destino (`EXIT`). Ele é a referência comum do banco, motor e mapa 2D.
-- O [modelo de dados](DATA_MODEL.md) define entidades, cardinalidades, estados e invariantes do MVP. Ele deve ser convertido em Prisma na issue #6; ainda não existe migração nem persistência de domínio implementada.
+- O [modelo de dados](DATA_MODEL.md) define entidades, cardinalidades, estados e invariantes do MVP. A issue #6 o converteu em `services/api/prisma/schema.prisma` e na migração inicial; a API ainda precisa passar a usá-lo nos casos de uso de negócio.
 - A API continua responsável por montar um grafo validado a partir do banco e por validar a rota devolvida pelo motor. O navegador não cria conexões, e o motor não acessa o banco no fluxo normal.

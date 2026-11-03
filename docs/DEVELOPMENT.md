@@ -1,6 +1,6 @@
 # Desenvolvimento local
 
-Esta página define o fluxo oficial do SmartPick enquanto o MVP estiver em construção: tudo roda nativamente em `localhost`, sem Docker, Cloudflare, túnel ou serviço externo. A branch de integração é `localhost`; toda nova branch de tarefa deve partir dela.
+Esta página define o fluxo oficial do SmartPick enquanto o MVP estiver em construção: tudo roda nativamente em `localhost`, sem Docker, Cloudflare, túnel ou serviço externo. A branch de integração é `main`; toda nova branch de tarefa deve partir dela.
 
 ## Pré-requisitos
 
@@ -28,7 +28,7 @@ psql --version
 ```powershell
 git clone https://github.com/notknd/Projeto_Telecontrol.git
 cd Projeto_Telecontrol
-git switch localhost
+git switch main
 Copy-Item .env.example .env
 ```
 
@@ -36,14 +36,24 @@ O `.env` é exclusivamente local. Não inclua senhas, tokens ou o seu conteúdo 
 
 ## Banco de dados local
 
-O banco será usado quando a issue #6 (Prisma e migração) for entregue. Instale PostgreSQL localmente e crie o usuário e banco com os mesmos valores do `.env`:
+O schema Prisma, a migração inicial e o seed foram entregues nas issues #6 e #7. Instale PostgreSQL localmente e crie o usuário e banco com os mesmos valores do `.env`:
 
 ```powershell
 psql -U postgres -c "CREATE ROLE smartpick LOGIN PASSWORD 'change-this-local-password';"
 psql -U postgres -c "CREATE DATABASE smartpick OWNER smartpick;"
 ```
 
-Se já existirem, não repita esses comandos. Quando o schema Prisma estiver disponível, as instruções de migração e seed serão acrescentadas nesta página.
+Se já existirem, não repita esses comandos. Em seguida, na raiz do projeto, instale as dependências e aplique os dados de demonstração:
+
+```powershell
+Set-Location services/api
+npm install
+npm run db:generate
+npm run db:migrate
+npm run db:seed
+```
+
+`db:migrate` é o comando de desenvolvimento e aplica a migração inicial em um banco vazio. Em ambientes que só devem aplicar migrações já versionadas, use `npm run db:deploy`. Execute `npm run db:seed` uma segunda vez para confirmar que a seed não cria duplicações. Veja [DATABASE.md](DATABASE.md) para os cenários carregados e as restrições do schema.
 
 ## Iniciar todos os serviços
 
@@ -111,11 +121,11 @@ O teste manual do MVP, quando os módulos existirem, deve cobrir: criar pedido �
 
 ## Trabalho pelo app ChatGPT para PC
 
-1. Atualize a branch de integração: `git switch localhost` e `git pull origin localhost`.
+1. Atualize a branch de integração: `git switch main` e `git pull origin main`.
 2. Crie sua branch a partir dela, por exemplo `feature/issue-15-dijkstra`.
 3. Abra uma conversa/tarefa para a issue e informe seu número e os arquivos envolvidos.
 4. Peça alterações restritas ao escopo da issue e revise o diff antes de commitar.
-5. Execute `.\scripts\test-local.ps1`, envie sua branch e abra um PR para `localhost`.
+5. Execute `.\scripts\test-local.ps1`, valide também `npm run db:validate` quando alterar o schema, envie sua branch e abra um PR para `main`.
 6. Use `Closes #NUMERO` somente quando o trabalho realmente cumprir os critérios de aceite.
 
 ## Docker, Cloudflare e implantação

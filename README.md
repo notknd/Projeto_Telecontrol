@@ -4,18 +4,18 @@ Aplicação para otimizar rotas de coleta de produtos em armazéns. A arquitetur
 
 ## Estado atual
 
-Esta primeira entrega estabelece a fundação dos serviços. Ainda não há CRUD, banco modelado ou cálculo de rotas; eles serão implementados incrementalmente.
+A fundação dos serviços, a modelagem do domínio e a primeira persistência do MVP estão disponíveis. O backend possui schema Prisma, migração PostgreSQL versionada e seed de demonstração; CRUD completo, cálculo de rotas e telas de coleta continuam nas próximas etapas.
 
 ## Ambiente da equipe
 
-Enquanto o MVP estiver em desenvolvimento, a branch de integração e execução é **`localhost`**. O fluxo padrão é nativo e inteiramente local: navegador, API e motor rodam em `127.0.0.1`; PostgreSQL também deve estar instalado localmente quando o schema for adicionado. Docker Compose e qualquer túnel/Cloudflare ficam fora do fluxo atual e só serão tratados depois de o MVP estar funcional.
+Enquanto o MVP estiver em desenvolvimento, a branch de integração e execução é **`main`**. O fluxo padrão é nativo e inteiramente local: navegador, API e motor rodam em `127.0.0.1`; PostgreSQL também deve estar instalado localmente. Docker Compose e qualquer túnel/Cloudflare ficam fora do fluxo atual e só serão tratados depois de o MVP estar funcional.
 
 Consulte o [guia de desenvolvimento](docs/DEVELOPMENT.md) para a instalação, execução, verificações e fluxo de trabalho no app ChatGPT para PC.
 
 ## Execução local
 
 ```powershell
-git switch localhost
+git switch main
 Copy-Item .env.example .env
 .\scripts\start-local.ps1
 ```
