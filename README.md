@@ -4,7 +4,7 @@ Aplicação para otimizar rotas de coleta de produtos em armazéns. A arquitetur
 
 ## Estado atual
 
-A fundação dos serviços, a modelagem do domínio e a primeira persistência do MVP estão disponíveis. O backend possui schema Prisma, migração PostgreSQL versionada e seed de demonstração; CRUD completo, cálculo de rotas e telas de coleta continuam nas próximas etapas.
+A fundação dos serviços, a modelagem do domínio, a primeira persistência e a execução local integrada estão disponíveis em `main`. O backend possui schema Prisma, migração PostgreSQL versionada e seed de demonstração validada; CRUD público, cálculo de rotas e telas de coleta continuam nas próximas etapas.
 
 ## Ambiente da equipe
 
@@ -54,6 +54,8 @@ O primeiro comando inicia os quatro componentes no computador; o segundo comprov
 Mostre no navegador `http://127.0.0.1:5173`, `http://127.0.0.1:3000/health` e `http://127.0.0.1:8000/health`. A documentação interativa do motor fica em `http://127.0.0.1:8000/docs`.
 
 > A demonstração prova a infraestrutura integrada e a massa de dados versionada. O fluxo visual pedido → rota → coleta ainda é uma próxima etapa do MVP, portanto não deve ser apresentado como concluído.
+
+Antes de começar outra tarefa, atualize `main`. Um commit em outra branch — mesmo quando a issue correspondente estiver fechada — não integra automaticamente o MVP. O estado auditado e a ordem das próximas entregas estão em [docs/PROGRESS.md](docs/PROGRESS.md).
 
 ## Docker e publicação
 
