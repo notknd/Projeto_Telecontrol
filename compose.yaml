@@ -16,6 +16,8 @@ services:
   engine:
     build:
       context: ./services/engine
+    ports:
+      - "${ENGINE_PORT:-8000}:8000"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 10s
@@ -31,6 +33,9 @@ services:
       # Docker uses the internal service DNS; the native .env keeps 127.0.0.1.
       ENGINE_URL: http://engine:8000
       DATABASE_URL: postgresql://${POSTGRES_USER:-smartpick}:${POSTGRES_PASSWORD:-change-me-for-local-development}@db:5432/${POSTGRES_DB:-smartpick}?schema=public
+    command: >
+      sh -c "npx prisma migrate deploy --schema prisma/schema.prisma &&
+      npx prisma db seed --schema prisma/schema.prisma && npm run start"
     depends_on:
       db:
         condition: service_healthy
@@ -39,7 +44,8 @@ services:
     ports:
       - "${API_PORT:-3000}:3000"
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/health"]
+      # O Fastify escuta em IPv4; evitar `localhost` impede que o wget tente ::1 no contêiner.
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3000/health"]
       interval: 10s
       timeout: 3s
       retries: 5

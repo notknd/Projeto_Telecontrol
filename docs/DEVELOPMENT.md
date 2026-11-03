@@ -1,6 +1,6 @@
 # Desenvolvimento local
 
-Esta página define o fluxo oficial do SmartPick enquanto o MVP estiver em construção: tudo roda nativamente em `localhost`, sem Docker, Cloudflare, túnel ou serviço externo. A branch de integração é `main`; toda nova branch de tarefa deve partir dela.
+Esta página define o fluxo oficial do SmartPick enquanto o MVP estiver em construção: tudo deve funcionar no computador local, sem Cloudflare, túnel ou serviço externo. A branch de integração é `main`; toda nova branch de tarefa deve partir dela. Docker Compose é o caminho recomendado para iniciar os quatro serviços juntos; a execução nativa existe para depuração.
 
 ## Pré-requisitos
 
@@ -9,7 +9,8 @@ Esta página define o fluxo oficial do SmartPick enquanto o MVP estiver em const
 | Git | Obter e compartilhar o código | versão atual |
 | Node.js | API e frontend | 22 LTS |
 | Python | Motor de rotas | 3.13+ |
-| PostgreSQL | Banco local para o MVP | 17 |
+| Docker Desktop | Executar a composição local completa | versão atual |
+| PostgreSQL | Banco local para a execução nativa (opcional ao usar Docker) | 17+ |
 
 Confirme as ferramentas instaladas:
 
@@ -19,9 +20,28 @@ node --version
 npm --version
 python --version
 psql --version
+docker --version
 ```
 
-> Docker Desktop e Cloudflare **não** são pré-requisitos desta fase.
+> Cloudflare não é pré-requisito desta fase. Docker Desktop é recomendado para a execução local completa.
+
+## Executar tudo com Docker
+
+Na raiz do repositório, execute:
+
+```powershell
+docker compose up --build -d
+```
+
+A composição aguarda o PostgreSQL, aplica a migração Prisma, roda a seed idempotente e inicia motor, API e frontend. Verifique:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:3000/health
+Start-Process http://127.0.0.1:5173
+docker compose ps
+```
+
+Para parar, preserve os dados locais e execute `docker compose down`. Use `docker compose down -v` somente quando quiser apagar deliberadamente o banco de demonstração.
 
 ## Primeiro acesso
 
@@ -117,6 +137,14 @@ Execute na raiz:
 
 O script valida typecheck, testes e build da API; testes do motor; typecheck e build do frontend; e `git diff --check`. Registre no PR qualquer verificação que não foi possível executar.
 
+Para a prova integrada com Docker, execute também:
+
+```powershell
+.\scripts\test-compose.ps1
+```
+
+Ela inicia a composição se necessário, valida saúde do PostgreSQL/API/motor/frontend, confere o histórico Prisma e roda a seed uma segunda vez. A execução não remove volumes nem apaga a massa de demonstração.
+
 O teste manual do MVP, quando os módulos existirem, deve cobrir: criar pedido → calcular rota → iniciar coleta → registrar produtos → concluir pedido → consultar histórico.
 
 ## Trabalho pelo app ChatGPT para PC
@@ -128,9 +156,9 @@ O teste manual do MVP, quando os módulos existirem, deve cobrir: criar pedido �
 5. Execute `.\scripts\test-local.ps1`, valide também `npm run db:validate` quando alterar o schema, envie sua branch e abra um PR para `main`.
 6. Use `Closes #NUMERO` somente quando o trabalho realmente cumprir os critérios de aceite.
 
-## Docker, Cloudflare e implantação
+## Cloudflare e implantação
 
-Esses itens são deliberadamente posteriores ao MVP. `compose.yaml` é preservado como referência de implantação, mas não é parte da rotina de desenvolvimento, testes ou demonstração atual. Quando o fluxo local completo estiver aprovado, a equipe definirá uma configuração de produção separada, sem alterar a referência local por acidente.
+Cloudflare e qualquer publicação externa são posteriores ao MVP. O `compose.yaml` é exclusivamente a composição reproduzível para execução local e não publica serviços na internet.
 
 ## Problemas comuns
 

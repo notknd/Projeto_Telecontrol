@@ -9,18 +9,18 @@ O SmartPick é composto por quatro serviços:
 
 O fluxo previsto é `web → api → engine` e `api → db`.
 
-## Execução atual: localhost
+## Execução atual: local
 
-A branch `localhost` é a referência de integração do MVP. Os componentes são executados nativamente, no mesmo computador, sem Docker, Cloudflare ou serviços externos:
+A branch `main` é a referência de integração do MVP. Os componentes são executados no mesmo computador, via Docker Compose ou nativamente para depuração, sem Cloudflare ou serviços externos:
 
 | Componente | Endereço local | Observação |
 | --- | --- | --- |
 | Frontend | `http://127.0.0.1:5173` | Vite/Vue |
 | API | `http://127.0.0.1:3000` | Fastify; por padrão escuta somente no localhost |
 | Motor | `http://127.0.0.1:8000` | FastAPI; chamado pela API por `ENGINE_URL` |
-| PostgreSQL | `127.0.0.1:5432` | Será consumido pela API após a implementação do Prisma |
+| PostgreSQL | rede interna `db:5432` (Compose) ou `127.0.0.1:5432` (nativo) | Recebe a migração e a seed na inicialização Docker |
 
-No desenvolvimento local, `ENGINE_URL` deve ser `http://127.0.0.1:8000`. A configuração de rede interna do Compose (`http://engine:8000`) fica isolada no próprio `compose.yaml` para uma futura fase de implantação.
+No desenvolvimento nativo, `ENGINE_URL` deve ser `http://127.0.0.1:8000`; na composição local, usa-se a rede interna `http://engine:8000`.
 
 ## Estado da fundação
 
