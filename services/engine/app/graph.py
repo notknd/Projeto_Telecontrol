@@ -1,4 +1,4 @@
-"""Weighted graph representation used by warehouse route algorithms."""
+"""Representação em grafo ponderado utilizada por algoritmos de roteamento em armazéns."""
 
 from types import MappingProxyType
 from typing import Mapping
@@ -7,7 +7,7 @@ from app.graph_models import WarehouseMap
 
 
 class WarehouseGraph:
-    """An undirected adjacency list built from a validated warehouse map."""
+    """Lista de adjacência não direcionada construída a partir de um mapa de armazém validado."""
 
     def __init__(self, warehouse: WarehouseMap) -> None:
         adjacency: dict[str, dict[str, float]] = {
@@ -26,14 +26,14 @@ class WarehouseGraph:
         return tuple(self._adjacency)
 
     def neighbors(self, node_id: str) -> Mapping[str, float]:
-        """Return neighboring nodes and distances, or reject an unknown node."""
+        """Retorna nós vizinhos e distâncias, ou rejeita um nó desconhecido."""
         try:
             return MappingProxyType(self._adjacency[node_id])
         except KeyError as error:
-            raise KeyError(f"Unknown warehouse node: {node_id}") from error
+            raise KeyError(f"Nó de armazém desconhecido: {node_id}") from error
 
     def distance(self, from_node: str, to_node: str) -> float | None:
-        """Return the direct edge distance, or None when no edge exists."""
+        """Retorna a distância da aresta direta, ou None quando não existe aresta."""
         return self.neighbors(from_node).get(to_node)
 
     def has_node(self, node_id: str) -> bool:
