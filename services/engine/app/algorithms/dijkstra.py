@@ -1,4 +1,4 @@
-"""Dijkstra's shortest-path algorithm for non-negative warehouse edges."""
+"""Algoritmo de caminho mínimo de Dijkstra para arestas com pesos não negativos em um armazém."""
 
 from dataclasses import dataclass
 from heapq import heappop, heappush
@@ -8,7 +8,7 @@ from app.graph import WarehouseGraph
 
 
 class NoPathError(ValueError):
-    """Raised when two valid warehouse nodes are disconnected."""
+    """Acionado quando dois nós de armazém válidos são desconectados."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -18,9 +18,9 @@ class ShortestPath:
 
 
 def dijkstra(graph: WarehouseGraph, start_node: str, end_node: str) -> ShortestPath:
-    """Find the least-distance path between two nodes.
+    """Encontre o caminho de menor distância entre dois nós.
 
-    Distances are sums of edge weights, which the warehouse map expresses in meters.
+    As distâncias são somas de pesos de arestas, que o mapa do armazém expressa em metros..
     """
     graph.neighbors(start_node)
     graph.neighbors(end_node)
@@ -47,7 +47,7 @@ def dijkstra(graph: WarehouseGraph, start_node: str, end_node: str) -> ShortestP
                 heappush(queue, (candidate, next(sequence), neighbor_id))
 
     if end_node not in distances:
-        raise NoPathError(f"No path between warehouse nodes {start_node!r} and {end_node!r}")
+        raise NoPathError(f"Não há caminho entre os nós de armazém {start_node!r} e {end_node!r}")
 
     path = [end_node]
     while path[-1] != start_node:
