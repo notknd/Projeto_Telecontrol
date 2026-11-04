@@ -15,9 +15,9 @@ function Invoke-Check([string]$Name, [string]$Path, [string[]]$Commands) {
   } finally { Pop-Location }
 }
 
-Invoke-Check 'API' (Join-Path $projectRoot 'services/api') @('npm run typecheck', 'npm test', 'npm run build')
+Invoke-Check 'API' (Join-Path $projectRoot 'services/api') @('npm.cmd run typecheck', 'npm.cmd test', 'npm.cmd run build')
 Invoke-Check 'Motor' (Join-Path $projectRoot 'services/engine') @('.\.venv\Scripts\python.exe -m pytest')
-Invoke-Check 'Frontend' (Join-Path $projectRoot 'apps/web') @('npm run typecheck', 'npm run build')
+Invoke-Check 'Frontend' (Join-Path $projectRoot 'apps/web') @('npm.cmd run typecheck', 'npm.cmd run build')
 
 Push-Location $projectRoot
 try {

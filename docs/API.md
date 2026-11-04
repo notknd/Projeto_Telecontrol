@@ -54,3 +54,23 @@ Erros:
 
 - `422`: campo ausente, vazio, ou quantidade/peso negativo;
 - `409`: SKU já cadastrado.
+
+### Consulta de produtos
+
+`GET /api/v1/products`
+
+Retorna todos os produtos cadastrados temporariamente, ordenados pelo SKU. A
+resposta de sucesso é `200` com uma lista JSON; se não houver produtos, a lista
+será vazia (`[]`).
+
+### Consulta por SKU, atualização e desativação
+
+- `GET /api/v1/products/{sku}`: retorna um produto pelo SKU (`200`) ou `404`
+  quando não existir.
+- `PUT /api/v1/products/{sku}`: atualiza um ou mais destes campos: `name`,
+  `stock_quantity`, `location`, `weight_kg` e `category`. O SKU não é alterado.
+  Retorna o produto atualizado (`200`), `404` se não existir ou `422` para dados
+  inválidos.
+- `DELETE /api/v1/products/{sku}`: desativa logicamente o produto e retorna
+  `204`. O registro não é apagado, preservando o histórico para os próximos
+  módulos de pedidos e coleta.

@@ -47,8 +47,30 @@ class Product(ProductCreate):
     created_at: datetime
 
 
+class ProductUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    stock_quantity: int | None = Field(default=None, ge=0)
+    location: str | None = Field(default=None, min_length=1, max_length=80)
+    weight_kg: float | None = Field(default=None, ge=0)
+    category: str | None = Field(default=None, max_length=80)
+
+    @field_validator("name", "location", "category", mode="before")
+    @classmethod
+    def remove_extra_spaces(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        clean_value = value.strip()
+        if not clean_value:
+            raise ValueError("não pode ficar vazio")
+        return clean_value
+
+
 class DuplicateSkuError(Exception):
     """Raised when attempting to register an existing SKU."""
+
+
+class ProductNotFoundError(Exception):
+    """Raised when a product cannot be found by SKU."""
 
 
 class ProductStore:
@@ -73,6 +95,49 @@ class ProductStore:
             products.append(product.model_dump(mode="json"))
             self._write_products(products)
             return product
+
+    def list_all(self) -> list[Product]:
+        """Returns every temporarily stored product ordered by its SKU."""
+        with self.lock:
+            products = [Product.model_validate(product) for product in self._read_products()]
+        return sorted(products, key=lambda product: product.sku)
+
+    def get_by_sku(self, sku: str) -> Product:
+        with self.lock:
+            product = self._find_by_sku(self._read_products(), sku)
+        if product is None:
+            raise ProductNotFoundError
+        return Product.model_validate(product)
+
+    def update(self, sku: str, product_data: ProductUpdate) -> Product:
+        with self.lock:
+            products = self._read_products()
+            product = self._find_by_sku(products, sku)
+            if product is None:
+                raise ProductNotFoundError
+
+            product.update(product_data.model_dump(exclude_unset=True))
+            updated_product = Product.model_validate(product)
+            self._write_products([
+                updated_product.model_dump(mode="json") if item["id"] == product["id"] else item
+                for item in products
+            ])
+            return updated_product
+
+    def deactivate(self, sku: str) -> None:
+        with self.lock:
+            products = self._read_products()
+            product = self._find_by_sku(products, sku)
+            if product is None:
+                raise ProductNotFoundError
+
+            product["is_active"] = False
+            self._write_products(products)
+
+    @staticmethod
+    def _find_by_sku(products: list[dict[str, object]], sku: str) -> dict[str, object] | None:
+        normalized_sku = sku.strip().upper()
+        return next((product for product in products if product["sku"] == normalized_sku), None)
 
     def _read_products(self) -> list[dict[str, object]]:
         if not self.file_path.exists():

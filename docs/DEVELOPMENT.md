@@ -16,7 +16,7 @@ Confirme as ferramentas instaladas:
 ```powershell
 git --version
 node --version
-npm --version
+npm.cmd --version
 python --version
 psql --version
 ```
@@ -53,7 +53,7 @@ Na raiz do projeto:
 .\scripts\start-local.ps1
 ```
 
-Na primeira vez, o script instala dependências Node, cria o ambiente virtual Python e instala os requisitos do motor. Depois abre três janelas de PowerShell, uma para cada serviço. Para reiniciar sem reinstalar dependências, use:
+Na primeira vez, o script instala dependências Node, cria o ambiente virtual Python e instala os requisitos do motor. Depois abre três janelas de PowerShell, uma para cada serviço. Essas janelas não carregam o perfil do PowerShell e usam `Bypass` apenas durante a sessão, sem alterar a política de execução do computador. Para reiniciar sem reinstalar dependências, use:
 
 ```powershell
 .\scripts\start-local.ps1 -SkipInstall
@@ -82,8 +82,8 @@ Se precisar depurar somente um serviço, use terminais separados.
 ```powershell
 # API
 Set-Location services/api
-npm install
-npm run dev
+npm.cmd install
+npm.cmd run dev
 
 # Motor
 Set-Location services/engine
@@ -93,8 +93,8 @@ python -m venv .venv
 
 # Frontend
 Set-Location apps/web
-npm install
-npm run dev
+npm.cmd install
+npm.cmd run dev
 ```
 
 ## Testes obrigatórios antes do pull request
@@ -129,5 +129,5 @@ Esses itens são deliberadamente posteriores ao MVP. `compose.yaml` é preservad
 | `psql` não é reconhecido | Instale PostgreSQL e abra um novo PowerShell. |
 | Porta 3000, 5173 ou 8000 ocupada | Feche o processo local que a usa antes de iniciar o script. |
 | O ambiente Python não inicia | Execute `Set-ExecutionPolicy -Scope Process Bypass` e tente novamente no mesmo terminal. |
-| Dependências Node inconsistentes | Apague somente o `node_modules` do serviço afetado e execute `npm install` novamente. |
+| Dependências Node inconsistentes | Apague somente o `node_modules` do serviço afetado e execute `npm.cmd install` novamente. |
 | O frontend não abre | Confirme que o terminal do Vite está ativo e acesse `http://127.0.0.1:5173`. |
