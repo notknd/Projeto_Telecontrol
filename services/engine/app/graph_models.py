@@ -1,4 +1,4 @@
-"""Data structures for the warehouse map graph."""
+"""Estruturas de dados para o grafo do mapa do armazém."""
 
 from dataclasses import dataclass
 from math import isfinite
@@ -7,7 +7,7 @@ from typing import Iterable
 
 @dataclass(frozen=True, slots=True)
 class WarehouseNode:
-    """A stable warehouse location, optionally positioned on a 2D map."""
+    """Um local de armazém fixo, opcionalmente posicionado em um mapa 2D."""
 
     id: str
     x: float | None = None
@@ -18,12 +18,12 @@ class WarehouseNode:
             raise ValueError("Node id must not be empty")
         for name, value in (("x", self.x), ("y", self.y)):
             if value is not None and not isfinite(value):
-                raise ValueError(f"Node {name} coordinate must be finite")
+                raise ValueError(f"A coordenada do nó {name} deve ser finita")
 
 
 @dataclass(frozen=True, slots=True)
 class WarehouseEdge:
-    """A walkable connection between two nodes, measured in meters."""
+    """Uma conexão percorrível a pé entre dois nós, medida em metros."""
 
     from_node: str
     to_node: str
@@ -35,12 +35,12 @@ class WarehouseEdge:
         if not self.to_node or not self.to_node.strip():
             raise ValueError("Edge to_node must not be empty")
         if not isfinite(self.distance) or self.distance < 0:
-            raise ValueError("Edge distance must be a finite non-negative number")
+            raise ValueError("A distância até a borda deve ser um número finito não negativo.")
 
 
 @dataclass(frozen=True, slots=True)
 class WarehouseMap:
-    """Validated nodes and weighted connections for a warehouse."""
+    """Nós validados e conexões ponderadas para um armazém."""
 
     nodes: tuple[WarehouseNode, ...]
     edges: tuple[WarehouseEdge, ...]
@@ -54,14 +54,14 @@ class WarehouseMap:
         edge_list = tuple(edges)
         node_ids = [node.id for node in node_list]
         if len(node_ids) != len(set(node_ids)):
-            raise ValueError("Warehouse node ids must be unique")
+            raise ValueError("Os IDs dos nós de armazém devem ser exclusivos.")
 
         known_nodes = set(node_ids)
         for edge in edge_list:
             missing = {edge.from_node, edge.to_node} - known_nodes
             if missing:
                 raise ValueError(
-                    "Edge references unknown node(s): " + ", ".join(sorted(missing))
+                    "A aresta faz referência a nó(s) desconhecido(s): " + ", ".join(sorted(missing))
                 )
 
         object.__setattr__(self, "nodes", node_list)
