@@ -12,6 +12,46 @@ Resposta de sucesso (`200`):
 {"status":"ok","service":"api"}
 ```
 
+## Cálculo público de rota
+
+`POST /api/v1/routes/calculate`
+
+Recebe somente a identificação persistida do pedido. A API consulta os itens, as posições ativas e o grafo do armazém; então envia ao motor apenas os dados necessários para o cálculo.
+
+Requisição:
+
+```json
+{"orderId":"UUID_DO_PEDIDO"}
+```
+
+Resposta de sucesso (`200`):
+
+```json
+{
+  "orderId":"UUID_DO_PEDIDO",
+  "route":{
+    "status":"success",
+    "pathNodeIds":["UUID_ENTRADA","UUID_POSICAO","UUID_SAIDA"],
+    "stops":[{"nodeId":"UUID_POSICAO","sequence":1,"productIds":["UUID_PRODUTO"]}],
+    "totalDistance":9,
+    "distanceUnit":"m",
+    "algorithm":{"shortestPath":"dijkstra","visitOrder":"nearest_neighbor"}
+  }
+}
+```
+
+Erros: `400 INVALID_ROUTE_REQUEST` para corpo inválido; `404 ORDER_NOT_FOUND` para pedido inexistente; `422 ORDER_NOT_ROUTABLE`, `WAREHOUSE_CONFIGURATION_INVALID` ou `NO_ROUTE_FOUND` quando não for possível calcular uma rota completa; `503 ENGINE_UNAVAILABLE`, `504 ENGINE_TIMEOUT` e `502 ENGINE_INVALID_RESPONSE` para falhas na integração.
+
+O endpoint não altera o status do pedido nem persiste a rota. Essas transições serão tratadas pelo fluxo de coleta e persistência.
+
+## Cálculo interno de rota
+
+`POST /internal/v1/routes/calculate`
+
+Disponível apenas à API na rede interna. Recebe `warehouse.nodes`, arestas dirigidas com distância em metros, origem, paradas agrupadas por posição, destino e `strategy: "nearest_neighbor"`. O motor usa Dijkstra para cada trecho e Vizinho Mais Próximo para ordenar as paradas. A resposta sempre usa metros, inclui todos os nós do percurso e informa `NO_ROUTE_FOUND` quando algum trecho não é alcançável.
+
+`ENGINE_URL` define a URL do motor, com padrão `http://engine:8000`; `ENGINE_TIMEOUT_MS` define o limite da chamada, com padrão de 5000 ms. A API valida a estrutura, as arestas e a distância retornada antes de devolver a rota.
+
 ## Saúde do motor interno
 
 `GET /health`
@@ -24,7 +64,7 @@ Resposta de sucesso (`200`):
 {"status":"ok","service":"engine"}
 ```
 
-O contrato público de negócio, sob `/api/v1`, será adicionado antes do CRUD e permanecerá separado do contrato interno de cálculo.
+Os demais contratos públicos de negócio, sob `/api/v1`, permanecem separados do contrato interno de cálculo.
 
 ## Cadastro temporário de produtos no motor
 
