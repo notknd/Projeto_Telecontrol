@@ -17,19 +17,19 @@ def test_registers_a_product(tmp_path) -> None:
     response = client.post(
         "/api/v1/products",
         json={
-            "sku": " cx-01 ",
-            "name": " Caixa organizadora ",
+            "sku": " tc-01 ",
+            "name": " Teclado Gamer ",
             "stock_quantity": 12,
             "location": " A-01-02 ",
             "weight_kg": 1.5,
-            "category": " Organização ",
+            "category": " Periféricos ",
         },
     )
 
     assert response.status_code == 201
     product = response.json()
-    assert product["sku"] == "CX-01"
-    assert product["name"] == "Caixa organizadora"
+    assert product["sku"] == "TC-01"
+    assert product["name"] == "Teclado Gamer"
     assert product["location"] == "A-01-02"
     assert product["is_active"] is True
     assert product["id"]
@@ -38,8 +38,8 @@ def test_registers_a_product(tmp_path) -> None:
 def test_rejects_a_repeated_sku(tmp_path) -> None:
     client = build_test_client(tmp_path)
     product = {
-        "sku": "CX-01",
-        "name": "Caixa organizadora",
+        "sku": "TC-01",
+        "name": "Teclado Gamer",
         "stock_quantity": 12,
         "location": "A-01-02",
         "weight_kg": 1.5,
@@ -59,7 +59,7 @@ def test_rejects_invalid_product_data(tmp_path) -> None:
         "/api/v1/products",
         json={
             "sku": "",
-            "name": "Caixa organizadora",
+            "name": "Teclado Gamer",
             "stock_quantity": -1,
             "location": "A-01-02",
             "weight_kg": -0.5,

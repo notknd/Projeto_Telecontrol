@@ -1,6 +1,6 @@
 # Banco de dados do MVP
 
-As issues #6 e #7 entregam o primeiro schema PostgreSQL do SmartPick, sua migração versionada e dados de demonstração repetíveis. A implementação está em `services/api/prisma`, porque o Node/Fastify é o único serviço que acessará o banco no fluxo normal do produto.
+As issues #6 e #7 entregaram o primeiro schema PostgreSQL do SmartPick, sua migração versionada e dados de demonstração repetíveis; ambas foram integradas em `main` pela PR #55. A implementação está em `services/api/prisma`, porque o Node/Fastify é o único serviço que acessará o banco no fluxo normal do produto.
 
 ## Preparação e comandos
 
@@ -12,6 +12,8 @@ As issues #6 e #7 entregam o primeiro schema PostgreSQL do SmartPick, sua migra�
 6. Execute `npm run db:seed` para inserir a demonstração.
 
 Todos esses scripts leem `DATABASE_URL` do `.env` da raiz, sem copiar credenciais para `services/api`. `npm run db:validate` valida o schema sem tocar no banco.
+
+Para a execução recomendada com Docker, não é necessário rodar esses comandos manualmente: `docker compose up --build -d` aplica a migração e a seed, e `./scripts/test-compose.ps1` verifica a saúde do conjunto e executa a seed outra vez para confirmar a idempotência.
 
 ## Conteúdo do seed
 

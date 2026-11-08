@@ -1,21 +1,38 @@
 # Plano de implementação
 
-## Auditoria inicial — 20/10/2026
+## Estado de referência — 03/11/2026
 
-- A branch `main` continha apenas um README mínimo e nenhum código executável.
-- Não há dependências, modelo de dados, API ou documentação técnica existentes para reutilizar.
-- Os issues abertos incluem a definição do modelo do armazém, do grafo e das entidades. Os documentos fornecidos pelo solicitante são a referência arquitetural atual.
-- Não foram encontradas decisões de código mais recentes que conflitem com o PRD ou o guia.
+`main` é a fonte de verdade integrada. Ela já contém a fundação do repositório, os modelos de domínio, o grafo inicial, o schema Prisma, a primeira migração e a seed de demonstração. A PR #55 também tornou a execução local reproduzível com Docker Compose e testes automatizados.
+
+O projeto ainda não implementa o fluxo do PRD `pedido → cálculo de rota → coleta → histórico`. A próxima etapa não é criar novas telas isoladas: é conectar dados persistidos, contrato de rota e motor de cálculo na ordem abaixo.
 
 ## Entregas concluídas
 
-1. Estrutura inicial para Vue, Fastify, FastAPI e PostgreSQL.
-2. Dockerfiles, Compose, variáveis de ambiente e verificações de saúde.
-3. Documentação da arquitetura e dos contratos de saúde.
-4. Modelagem do armazém e dos dados do MVP nas issues #2 e #4.
-5. Grafo inicial do armazém na issue #3.
-6. Schema Prisma, migração PostgreSQL e seed idempotente nas issues #6 e #7, aguardando execução em PostgreSQL local para validação final.
+1. Estrutura inicial para Vue, Fastify, FastAPI e PostgreSQL, com health checks.
+2. Modelagem do armazém e do domínio do MVP (issues #2 e #4).
+3. Grafo inicial do armazém (issue #3).
+4. Schema Prisma, migração PostgreSQL e seed idempotente (issues #6 e #7, PR #55).
+5. Composição Docker local, teste integrado e roteiro de demonstração (PR #55).
 
-## Próxima etapa recomendada
+## Pré-requisito de integração
 
-O próximo passo é aplicar a migração e a seed duas vezes em PostgreSQL local, depois conectar o cadastro de produtos e pedidos à API Node/Fastify por Prisma. Em paralelo, o motor deve evoluir do grafo inicial para Dijkstra, ordenação e montagem de rota. Consulte [PROGRESS.md](PROGRESS.md) e [DATABASE.md](DATABASE.md) para o estado verificável e os comandos.
+Antes de reutilizar uma entrega de outra branch, atualize `main` e confirme que ela tem ancestral comum:
+
+```powershell
+git switch main
+git pull --ff-only origin main
+git merge-base main origin/NOME-DA-BRANCH
+```
+
+Se `git merge-base` não retornar um commit, não faça merge direto. Recrie ou aplique cuidadosamente a mudança sobre `main`, com revisão do contrato e dos testes. Isso se aplica à branch atual da issue #49. Issues fechadas sem commit em `main` também devem ser reabertas ou receber uma nova issue de integração.
+
+## Próximas etapas, na ordem do PRD
+
+1. **Motor e testes de rota:** revisar e integrar o grafo executável/Dijkstra das branches das issues #8 e #15; depois incorporar os cenários de #35. Validar caminhos inexistentes, pesos e distâncias.
+2. **Contrato interno:** concluir #49 com `POST /internal/v1/routes/calculate`, exemplos, invariantes e erros. O contrato deve ser versionado na `main`, não apenas numa branch desconectada.
+3. **Dados de negócio na API:** implementar produtos, posições e pedidos pela API Fastify usando Prisma (issues #10–#13 e #20–#21). O endpoint JSON temporário do motor não é a persistência final.
+4. **Integração API → motor:** rebasear/revisar #50; aplicar timeout, validação de resposta e erros previsíveis. Em seguida, implementar o endpoint público de cálculo de rota (#22).
+5. **Coleta e visualização:** implementar atualização e conclusão de coleta (#23, #31, #32, #33), dashboard/pedido/mapa/rota (#25–#28 e #30) e comparação de rota (#36).
+6. **Validação do MVP:** executar o fluxo completo (#43), casos extremos (#37), correções (#38/#39) e a demonstração (#47).
+
+Cada etapa deve preservar a execução local. Antes de abrir PR, execute `./scripts/test-local.ps1`; quando a alteração envolver banco, Compose ou comunicação entre serviços, execute também `./scripts/test-compose.ps1`.

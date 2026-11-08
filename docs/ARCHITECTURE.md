@@ -22,9 +22,11 @@ A branch `main` é a referência de integração do MVP. Os componentes são exe
 
 No desenvolvimento nativo, `ENGINE_URL` deve ser `http://127.0.0.1:8000`; na composição local, usa-se a rede interna `http://engine:8000`.
 
-## Estado da fundação
+## Estado integrado atual
 
-Nesta etapa, a API expõe saúde e o repositório já contém o schema Prisma, a primeira migração PostgreSQL e a seed de demonstração. As rotas públicas de produtos e pedidos, o cálculo completo e a integração da API com o motor ainda serão implementados incrementalmente.
+Nesta etapa, a API expõe saúde e o repositório contém o schema Prisma, a primeira migração PostgreSQL e a seed de demonstração, todos integrados em `main` pela PR #55. A composição local aplica a migração e a seed automaticamente e a suíte `scripts/test-compose.ps1` valida PostgreSQL, API, motor, frontend e idempotência da massa.
+
+As rotas públicas de produtos e pedidos, o cálculo completo e a integração da API com o motor ainda serão implementados incrementalmente. O endpoint temporário de produto do motor não altera essa separação: ele persiste em JSON apenas como apoio transitório, enquanto a fonte oficial permanece PostgreSQL acessado pela API Node.
 
 ## Decisões de domínio aprováveis para a próxima etapa
 
