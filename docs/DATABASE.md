@@ -17,7 +17,7 @@ Para a execução recomendada com Docker, não é necessário rodar esses comand
 
 ## Conteúdo do seed
 
-O seed usa `upsert` pelas chaves estáveis (`WarehouseNode.code`, par de nós da aresta, `Product.sku`, `Order.code` e par pedido/produto). Portanto, rodá-lo de novo atualiza os mesmos registros e não duplica dados.
+O seed usa `upsert` pelas chaves estáveis (`WarehouseNode.code`, par de nós da aresta, `Product.sku`, `Order.code` e par pedido/produto). Registros existentes usam `update: {}`: não duplica dados nem restaura estoques, status ou quantidades coletadas. A migração adicional de histórico está descrita em [DATA_MODEL.md](DATA_MODEL.md).
 
 | Dado | Quantidade | Finalidade |
 | --- | ---: | --- |
@@ -26,7 +26,7 @@ O seed usa `upsert` pelas chaves estáveis (`WarehouseNode.code`, par de nós da
 | Produtos | 3 | Um produto por posição de armazenamento. |
 | Pedidos | 3 | `DEMO-SHORT`, `DEMO-MULTI-STOP` e `DEMO-CONVENTIONAL`. |
 
-`DEMO-SHORT` tem uma única parada, `DEMO-MULTI-STOP` cobre as três posições e `DEMO-CONVENTIONAL` fornece a mesma seleção em uma ordem convencional para comparação futura pelo motor. A seed não pré-calcula rotas: essa é responsabilidade das próximas issues do motor e integração.
+`DEMO-SHORT` tem uma única parada, `DEMO-MULTI-STOP` cobre as três posições e `DEMO-CONVENTIONAL` fornece a mesma seleção em uma ordem convencional. A seed não pré-calcula rotas: o cálculo ocorre pela API ao solicitar na interface. Registros anteriores à coluna `sequence` conservam ordem estável por data/ID; novos pedidos e novas seeds preservam a ordem informada.
 
 ## Integridade preservada no banco
 

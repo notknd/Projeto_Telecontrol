@@ -48,7 +48,7 @@ async function seed() {
     const persistedNode = await prisma.warehouseNode.upsert({
       where: { code: node.code },
       create: node,
-      update: { type: node.type, x: node.x, y: node.y, label: node.label, isActive: true },
+      update: {},
     });
     nodeByCode.set(node.code, persistedNode);
   }
@@ -62,7 +62,7 @@ async function seed() {
       await prisma.warehouseEdge.upsert({
         where: { fromNodeId_toNodeId: { fromNodeId: edgeFromNodeId, toNodeId: edgeToNodeId } },
         create: { fromNodeId: edgeFromNodeId, toNodeId: edgeToNodeId, distanceMeters },
-        update: { distanceMeters, isActive: true },
+        update: {},
       });
     }
   }
@@ -75,7 +75,7 @@ async function seed() {
     const persistedProduct = await prisma.product.upsert({
       where: { sku: product.sku },
       create: { ...productData, warehouseNodeId },
-      update: { ...productData, warehouseNodeId, isActive: true },
+      update: {},
     });
     productBySku.set(product.sku, persistedProduct);
   }
@@ -84,10 +84,10 @@ async function seed() {
     const persistedOrder = await prisma.order.upsert({
       where: { code: order.code },
       create: { code: order.code },
-      update: { status: 'PENDING', completedAt: null, cancelledAt: null },
+      update: {},
     });
 
-    for (const item of order.items) {
+    for (const [sequence, item] of order.items.entries()) {
       const product = productBySku.get(item.sku);
       if (!product) throw new Error(`Produto ausente na seed: ${item.sku}`);
       await prisma.orderItem.upsert({
@@ -96,15 +96,11 @@ async function seed() {
           orderId: persistedOrder.id,
           productId: product.id,
           requestedQuantity: item.quantity,
+          sequence,
           productSkuSnapshot: product.sku,
           productNameSnapshot: product.name,
         },
-        update: {
-          requestedQuantity: item.quantity,
-          collectedQuantity: 0,
-          productSkuSnapshot: product.sku,
-          productNameSnapshot: product.name,
-        },
+        update: {},
       });
     }
   }

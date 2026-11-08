@@ -1,5 +1,9 @@
 # Acompanhamento do projeto — SmartPick
 
+## Atualização de 08/11/2026 — integração HTML
+
+A branch `integration/smartpick-html` conecta produtos, pedidos, cálculo/recálculo, comparação, mapa 2D, coleta e histórico. A validação inclui PostgreSQL real, motor HTTP real e navegador. Isso é trabalho desta branch, não uma afirmação de merge em `main` nem fechamento das issues. Veja [o relatório e limitações](HTML_INTEGRATION.md). A auditoria datada de 03/11 abaixo permanece como registro histórico; Dijkstra já estava em `main` na base `f2128bb` usada na integração.
+
 **Atualizado em:** 3 de novembro de 2026
 **Branch de integração:** `main` (`841d683`)
 **Status geral:** fundação, modelagem, persistência inicial e execução local integrada estão concluídas. O MVP ainda não possui o fluxo de negócio ponta a ponta.

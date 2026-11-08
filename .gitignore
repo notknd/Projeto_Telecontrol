@@ -9,5 +9,6 @@ __pycache__/
 .venv/
 coverage/
 htmlcov/
+test-results/
 services/engine/data/
 

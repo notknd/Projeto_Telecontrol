@@ -1,5 +1,11 @@
 # Arquitetura
 
+## Integração SmartPick HTML — branch de trabalho
+
+Em `integration/smartpick-html`, Vue consome `/api/v1` por proxy de mesma origem; Fastify consulta Prisma/PostgreSQL e chama o motor interno. Cliente e contratos foram reaproveitados de `issue-22-route-calculation`; o motor reutiliza Dijkstra e WarehouseGraph de `main`, corrigido para conexões dirigidas. O HTML não mantém regras de estoque/coleta, login simulado ou cálculo de rotas.
+
+No Compose desta integração, apenas web e API são publicados em `127.0.0.1`; motor e banco ficam na rede interna. O motor nativo continua em `127.0.0.1:8000`. A API aplica transações serializáveis e valida a resposta do motor antes de persistir rotas. Consulte [API.md](API.md) e [HTML_INTEGRATION.md](HTML_INTEGRATION.md). As seções abaixo registram a referência anterior de `main`, não o estado atual desta branch.
+
 O SmartPick é composto por quatro serviços:
 
 - `apps/web`: frontend Vue 3 que consome somente a API pública.

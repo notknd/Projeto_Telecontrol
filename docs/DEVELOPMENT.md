@@ -1,5 +1,9 @@
 # Desenvolvimento local
 
+## Atualização para a integração HTML
+
+Para esta branch, use primeiro o [README](../README.md) atualizado. A interface é funcional e consome somente `/api/v1`; configure `API_PROXY_TARGET` no processo Vite se o Node não estiver em `127.0.0.1:3000`. O comando `npm run dev` da API carrega `.env` da raiz. Prepare migrações/seed antes de iniciar. No Compose, o motor deixou de publicar porta no host: verifique-o com `docker compose exec engine python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8000/health').read())"`. As referências abaixo a abrir `/docs`/porta 8000 no host aplicam-se somente à execução nativa. A suíte de seed preserva dados operacionais, mesmo quando houver mais registros que os da demonstração inicial.
+
 Esta página define o fluxo oficial do SmartPick enquanto o MVP estiver em construção: tudo deve funcionar no computador local, sem Cloudflare, túnel ou serviço externo. A branch de integração é `main`; toda nova branch de tarefa deve partir dela. Docker Compose é o caminho recomendado para iniciar os quatro serviços juntos; a execução nativa existe para depuração.
 
 ## Pré-requisitos

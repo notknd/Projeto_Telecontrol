@@ -1,64 +1,77 @@
 # SmartPick — Projeto Telecontrol
 
-Aplicação para otimizar rotas de coleta de produtos em armazéns. A arquitetura usa Vue 3 no frontend, Fastify no backend principal, FastAPI no motor de rotas e PostgreSQL para persistência.
+Aplicação local para otimizar rotas de coleta em armazéns: **Vue 3 + TypeScript → Fastify/Prisma → PostgreSQL e FastAPI**.
 
-## Estado atual
+## Integração do HTML SmartPick
 
-A fundação dos serviços, a modelagem do domínio, a primeira persistência e a execução local integrada estão disponíveis em `main`. O backend possui schema Prisma, migração PostgreSQL versionada e seed de demonstração validada; CRUD público, cálculo de rotas e telas de coleta continuam nas próximas etapas.
+Esta branch adapta o visual de `smartpick_wms.html` à arquitetura existente. Produtos, pedidos, rotas, estoque, coleta e histórico usam a API e o banco do Telecontrol. O navegador não calcula rotas nem persiste dados operacionais.
 
-## Ambiente da equipe
+O fluxo disponível é: cadastrar/consultar produtos → criar pedido → calcular rota → visualizar mapa 2D e comparação → iniciar coleta → confirmar quantidades → concluir → consultar histórico. Pedidos podem ser cancelados preservando o que já foi coletado. O layout inicial continua sendo o layout versionado do repositório.
 
-Enquanto o MVP estiver em desenvolvimento, a branch de integração e execução é **`main`**. A prioridade é executar tudo localmente. O caminho mais simples é Docker Compose: ele cria PostgreSQL, motor, API e frontend no mesmo computador e aplica a migração e a seed de demonstração automaticamente.
+Veja [o relatório de integração](docs/HTML_INTEGRATION.md), [os contratos](docs/API.md) e [o modelo de dados](docs/DATA_MODEL.md). A integração não equivale a declarar todas as funcionalidades futuras do PRD concluídas.
 
-Consulte o [guia de desenvolvimento](docs/DEVELOPMENT.md) para a instalação, execução, verificações e fluxo de trabalho no app ChatGPT para PC.
-
-## Execução local
-
-```powershell
-git switch main
-docker compose up --build -d
-```
-
-Em seguida, confira:
-
-```powershell
-Invoke-RestMethod http://127.0.0.1:3000/health
-Invoke-RestMethod http://127.0.0.1:8000/health
-Start-Process http://127.0.0.1:5173
-```
-
-Abra `http://127.0.0.1:5173` no navegador. Use `docker compose down` para parar o ambiente. O fluxo nativo com `.\scripts\start-local.ps1` continua disponível para depuração; para ele, copie `.env.example` para `.env` e prepare o PostgreSQL local.
-
-Use `.\scripts\test-local.ps1` para executar a suíte nativa antes de abrir um pull request.
-
-Para validar a composição Docker já em execução, incluindo saúde dos quatro serviços, migração Prisma e seed idempotente, use:
-
-```powershell
-.\scripts\test-compose.ps1
-```
-
-Acrescente `-Build` para reconstruir as imagens antes da verificação.
-
-## Roteiro de demonstração local
-
-Para uma apresentação, execute os comandos abaixo na ordem indicada:
+## Executar com Docker Compose
 
 ```powershell
 docker compose up --build -d
-.\scripts\test-compose.ps1
-docker compose ps
 ```
 
-O primeiro comando inicia os quatro componentes no computador; o segundo comprova que o banco, a API, o motor e o frontend respondem, que a migração Prisma foi aplicada e que a seed pode rodar novamente sem duplicar dados. O terceiro mostra os contêineres ativos ao vivo.
+Abra **http://127.0.0.1:5173**. O Compose aplica migrações e insere os dados `DEMO-*` sem reiniciar estoques ou coletas existentes. O frontend encaminha `/api` ao Node; o navegador não chama o motor.
 
-Mostre no navegador `http://127.0.0.1:5173`, `http://127.0.0.1:3000/health` e `http://127.0.0.1:8000/health`. A documentação interativa do motor fica em `http://127.0.0.1:8000/docs`.
+```powershell
+.\scripts\test-compose.ps1
+docker compose down
+```
 
-> A demonstração prova a infraestrutura integrada e a massa de dados versionada. O fluxo visual pedido → rota → coleta ainda é uma próxima etapa do MVP, portanto não deve ser apresentado como concluído.
+Não use `down -v` para parar o sistema: o volume contém seus dados. Esta integração foi validada nativamente com PostgreSQL real; o Docker não estava instalado no ambiente de validação, portanto o Compose precisa ser executado pela equipe antes do merge.
 
-Antes de começar outra tarefa, atualize `main`. Um commit em outra branch — mesmo quando a issue correspondente estiver fechada — não integra automaticamente o MVP. O estado auditado e a ordem das próximas entregas estão em [docs/PROGRESS.md](docs/PROGRESS.md).
+## Executar nativamente
 
-## Docker e publicação
+Prepare PostgreSQL, copie `.env.example` para `.env` e ajuste `DATABASE_URL`. Na raiz:
 
-`compose.yaml` é a forma reproduzível de executar o MVP local completo. Cloudflare não faz parte da arquitetura nem do fluxo desta branch.
+```powershell
+npm --prefix services/api ci
+npm --prefix services/api run db:generate
+npm --prefix services/api run db:deploy
+npm --prefix services/api run db:seed
+npm --prefix apps/web ci
+python -m venv services/engine/.venv
+services/engine/.venv/Scripts/python.exe -m pip install -r services/engine/requirements-dev.txt
+```
 
-Consulte [a arquitetura](docs/ARCHITECTURE.md), [os contratos](docs/API.md) e [o plano](docs/IMPLEMENTATION_PLAN.md) antes de iniciar a próxima etapa.
+Inicie cada serviço em um terminal:
+
+```powershell
+# Em services/engine
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+# Em services/api (carrega o .env da raiz)
+npm run dev
+# Em apps/web
+npm run dev
+```
+
+## Verificações
+
+```powershell
+.\scripts\test-local.ps1
+```
+
+A suíte da API inclui um teste de integração opcional. Para executá-lo, use **um banco descartável já migrado e com seed**, além do motor em execução:
+
+```powershell
+$env:INTEGRATION_DATABASE_URL = 'postgresql://USUARIO:SENHA@127.0.0.1:5432/BANCO_DE_TESTE'
+$env:ENGINE_URL = 'http://127.0.0.1:8000'
+# Em services/api
+npm test
+```
+
+Para validar o fluxo visual contra os serviços em execução (o teste cria pedidos e movimenta estoque):
+
+```powershell
+# Em apps/web, em ambiente de teste
+npx playwright install chromium
+$env:WEB_TEST_URL = 'http://127.0.0.1:5173'
+npm run test:e2e
+```
+
+O HTML original em Downloads foi preservado como referência. A versão integrada é o aplicativo Vue em `apps/web`, não uma página HTML autônoma com uma segunda base de dados.

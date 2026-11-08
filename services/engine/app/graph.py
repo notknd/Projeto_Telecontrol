@@ -7,7 +7,7 @@ from app.graph_models import WarehouseMap
 
 
 class WarehouseGraph:
-    """Lista de adjacência não direcionada construída a partir de um mapa de armazém validado."""
+    """Lista de adjacência dirigida construída a partir de um mapa de armazém validado."""
 
     def __init__(self, warehouse: WarehouseMap) -> None:
         adjacency: dict[str, dict[str, float]] = {
@@ -18,7 +18,6 @@ class WarehouseGraph:
             current = adjacency[edge.from_node].get(edge.to_node)
             if current is None or edge.distance < current:
                 adjacency[edge.from_node][edge.to_node] = edge.distance
-                adjacency[edge.to_node][edge.from_node] = edge.distance
         self._adjacency = adjacency
 
     @property

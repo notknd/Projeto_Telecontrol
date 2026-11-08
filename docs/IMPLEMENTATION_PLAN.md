@@ -1,5 +1,9 @@
 # Plano de implementação
 
+## Integração em revisão — 08/11/2026
+
+O fluxo visual foi conectado em `integration/smartpick-html`, usando a base `f2128bb` e reaproveitando cliente/contrato da branch da issue #22. Próximas verificações: revisão da equipe, execução do Compose em ambiente com Docker e avaliação das pendências em [HTML_INTEGRATION.md](HTML_INTEGRATION.md). A sequência abaixo é o plano histórico anterior à integração.
+
 ## Estado de referência — 03/11/2026
 
 `main` é a fonte de verdade integrada. Ela já contém a fundação do repositório, os modelos de domínio, o grafo inicial, o schema Prisma, a primeira migração e a seed de demonstração. A PR #55 também tornou a execução local reproduzível com Docker Compose e testes automatizados.
