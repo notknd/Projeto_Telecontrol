@@ -44,9 +44,9 @@ class DijkstraTests(unittest.TestCase):
 
     def test_rejects_unknown_start_or_destination(self) -> None:
         graph = graph_with(["a"], [])
-        with self.assertRaisesRegex(KeyError, "Unknown warehouse node"):
+        with self.assertRaisesRegex(KeyError, "Nó de armazém desconhecido"):
             dijkstra(graph, "missing", "a")
-        with self.assertRaisesRegex(KeyError, "Unknown warehouse node"):
+        with self.assertRaisesRegex(KeyError, "Nó de armazém desconhecido"):
             dijkstra(graph, "a", "missing")
 
 

@@ -32,7 +32,7 @@ class WarehouseGraphTests(unittest.TestCase):
     def test_unknown_node_is_reported(self) -> None:
         graph = WarehouseGraph(WarehouseMap([WarehouseNode("a")], []))
 
-        with self.assertRaisesRegex(KeyError, "Unknown warehouse node"):
+        with self.assertRaisesRegex(KeyError, "Nó de armazém desconhecido"):
             graph.neighbors("missing")
 
     def test_neighbors_cannot_mutate_the_graph(self) -> None:
