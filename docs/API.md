@@ -139,15 +139,11 @@ Resposta de sucesso (`200`):
 
 Os demais contratos públicos de negócio, sob `/api/v1`, permanecem separados do contrato interno de cálculo.
 
-## Cadastro temporário de produtos no motor
+## Produtos
 
 `POST /api/v1/products`
 
-Este endpoint está implementado temporariamente no processo FastAPI do motor e
-persiste os produtos em um arquivo JSON local. A variável `PRODUCTS_FILE_PATH`
-permite escolher outro caminho; o padrão é `data/products.json`. Ele não é o
-contrato final: a próxima etapa deve movê-lo para a API Node/Fastify e persistir
-via Prisma, conforme o PRD.
+Cria um produto persistido via Prisma e o associa a uma posição ativa do armazém.
 
 Exemplo de requisição:
 
@@ -155,17 +151,21 @@ Exemplo de requisição:
 {
   "sku": "CX-01",
   "name": "Caixa organizadora",
-  "stock_quantity": 12,
-  "location": "A-01-02",
-  "weight_kg": 1.5,
-  "category": "Organização"
+  "stockQuantity": 12,
+  "warehouseNodeId": "UUID_DA_POSICAO",
+  "weightKg": 1.5,
+  "category": "Organização",
+  "isActive": true
 }
 ```
 
-Resposta de sucesso (`201`): inclui os dados enviados, `id`, `is_active` e
-`created_at`. O SKU é convertido para maiúsculas e não pode ser repetido.
+O SKU é convertido para maiúsculas e não pode ser repetido. `GET /api/v1/products`
+lista os produtos ordenados por SKU, e `GET /api/v1/products/:productId` consulta
+um produto específico.
 
 Erros:
 
-- `422`: campo ausente, vazio, ou quantidade/peso negativo;
-- `409`: SKU já cadastrado.
+- `400 INVALID_PRODUCT_REQUEST`: campos inválidos, incluindo quantidade negativa;
+- `404 WAREHOUSE_NODE_NOT_FOUND` ou `PRODUCT_NOT_FOUND`;
+- `409 PRODUCT_SKU_ALREADY_EXISTS`;
+- `422 WAREHOUSE_NODE_INACTIVE`.
