@@ -1,4 +1,4 @@
-export type EngineFailureKind = 'unavailable' | 'timeout' | 'invalid_response';
+export type EngineFailureKind = 'unavailable' | 'timeout' | 'invalid_response' | 'no_route_found';
 
 const publicErrors: Record<EngineFailureKind, { statusCode: number; code: string; message: string }> = {
   unavailable: {
@@ -15,6 +15,11 @@ const publicErrors: Record<EngineFailureKind, { statusCode: number; code: string
     statusCode: 502,
     code: 'ENGINE_INVALID_RESPONSE',
     message: 'O motor de rotas retornou uma resposta inválida.',
+  },
+  no_route_found: {
+    statusCode: 422,
+    code: 'NO_ROUTE_FOUND',
+    message: 'Não existe caminho válido entre os pontos solicitados.',
   },
 };
 
@@ -43,6 +48,23 @@ export function toPublicApiError(error: unknown): PublicApiError {
     return {
       statusCode: error.statusCode,
       body: { error: { code: error.code, message: error.publicMessage } },
+    };
+  }
+
+  if (error instanceof Error && error.name === 'RouteCalculationError' &&
+    typeof (error as Error & { statusCode?: unknown }).statusCode === 'number' &&
+    typeof (error as Error & { code?: unknown }).code === 'string') {
+    const routeError = error as Error & { statusCode: number; code: string };
+    return {
+      statusCode: routeError.statusCode,
+      body: { error: { code: routeError.code, message: error.message } },
+    };
+  }
+
+  if (error instanceof Error && error.name === 'InvalidRouteCalculationRequest') {
+    return {
+      statusCode: 400,
+      body: { error: { code: 'INVALID_ROUTE_REQUEST', message: 'A requisição de cálculo é inválida.' } },
     };
   }
 

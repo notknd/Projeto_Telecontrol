@@ -7,7 +7,10 @@ import { EngineClientError, toPublicApiError } from './errors.js';
 const request: EngineRouteRequest = {
   warehouse: {
     nodes: [{ id: 'ENTRADA', x: 0, y: 0 }, { id: 'P12', x: 3, y: 2 }],
-    edges: [{ from: 'ENTRADA', to: 'P12', distance: 5 }],
+    edges: [
+      { from: 'ENTRADA', to: 'P12', distance: 5 },
+      { from: 'P12', to: 'ENTRADA', distance: 5 },
+    ],
   },
   startNodeId: 'ENTRADA',
   stops: [{ id: 'P12', productIds: ['PROD-A'] }],
@@ -104,6 +107,28 @@ test('maps network failures and server errors to unavailable', async () => {
   );
 });
 
+test('preserves the engine no-route domain error without exposing its message', async () => {
+  const client = new EngineClient('http://engine.test', 100, async () => jsonResponse({
+    error: { code: 'NO_ROUTE_FOUND', message: 'internal graph details' },
+  }, 422));
+
+  await assert.rejects(client.calculateRoute(request), (error: unknown) => {
+    assert.ok(error instanceof EngineClientError);
+    assert.equal(error.kind, 'no_route_found');
+
+    const publicError = toPublicApiError(error);
+    assert.equal(publicError.statusCode, 422);
+    assert.deepEqual(publicError.body, {
+      error: {
+        code: 'NO_ROUTE_FOUND',
+        message: 'Não existe caminho válido entre os pontos solicitados.',
+      },
+    });
+    assert.equal(JSON.stringify(publicError.body).includes('internal graph details'), false);
+    return true;
+  });
+});
+
 test('rejects malformed JSON and invalid engine payloads', async () => {
   const invalidJson = new EngineClient('http://engine.test', 100, async () => new Response('{', { status: 200 }));
   await assert.rejects(invalidJson.calculateRoute(request), (error: unknown) =>
@@ -131,6 +156,22 @@ test('rejects malformed JSON and invalid engine payloads', async () => {
     pathNodeIds: ['OTHER', 'P12', 'ENTRADA'],
   }));
   await assert.rejects(wrongStart.calculateRoute(request), (error: unknown) =>
+    error instanceof EngineClientError && error.kind === 'invalid_response',
+  );
+
+  const nonexistentConnection = new EngineClient('http://engine.test', 100, async () => jsonResponse({
+    ...success,
+    pathNodeIds: ['ENTRADA', 'UNKNOWN', 'P12', 'ENTRADA'],
+  }));
+  await assert.rejects(nonexistentConnection.calculateRoute(request), (error: unknown) =>
+    error instanceof EngineClientError && error.kind === 'invalid_response',
+  );
+
+  const wrongDistance = new EngineClient('http://engine.test', 100, async () => jsonResponse({
+    ...success,
+    totalDistance: 7,
+  }));
+  await assert.rejects(wrongDistance.calculateRoute(request), (error: unknown) =>
     error instanceof EngineClientError && error.kind === 'invalid_response',
   );
 

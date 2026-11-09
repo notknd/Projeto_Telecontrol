@@ -4,20 +4,61 @@ Aplicação para otimizar rotas de coleta de produtos em armazéns. A arquitetur
 
 ## Estado atual
 
-Esta primeira entrega estabelece a fundação dos serviços. Ainda não há CRUD, banco modelado ou cálculo de rotas; eles serão implementados incrementalmente.
+A fundação dos serviços, a modelagem do domínio, a primeira persistência e a execução local integrada estão disponíveis em `main`. O backend possui schema Prisma, migração PostgreSQL versionada e seed de demonstração validada; CRUD público, cálculo de rotas e telas de coleta continuam nas próximas etapas.
 
-## Execução com Docker
+## Ambiente da equipe
 
-1. Copie `.env.example` para `.env` e substitua a senha local de demonstração.
-2. Execute `docker compose up --build`.
-3. Consulte `http://localhost:3000/health` para verificar a API e `http://localhost:5173` para abrir o frontend.
+Enquanto o MVP estiver em desenvolvimento, a branch de integração e execução é **`main`**. A prioridade é executar tudo localmente. O caminho mais simples é Docker Compose: ele cria PostgreSQL, motor, API e frontend no mesmo computador e aplica a migração e a seed de demonstração automaticamente.
 
-Para encerrar, execute `docker compose down`. Não use `-v` na limpeza normal, pois o volume do PostgreSQL é persistente.
+Consulte o [guia de desenvolvimento](docs/DEVELOPMENT.md) para a instalação, execução, verificações e fluxo de trabalho no app ChatGPT para PC.
 
-## Desenvolvimento sem Docker
+## Execução local
 
-- API: em `services/api`, execute `npm install` e `npm run dev`.
-- Motor: em `services/engine`, crie um ambiente virtual, instale `requirements-dev.txt` e execute `uvicorn app.main:app --reload`.
-- Web: em `apps/web`, execute `npm install` e `npm run dev`.
+```powershell
+git switch main
+docker compose up --build -d
+```
+
+Em seguida, confira:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:3000/health
+Invoke-RestMethod http://127.0.0.1:8000/health
+Start-Process http://127.0.0.1:5173
+```
+
+Abra `http://127.0.0.1:5173` no navegador. Use `docker compose down` para parar o ambiente. O fluxo nativo com `.\scripts\start-local.ps1` continua disponível para depuração; para ele, copie `.env.example` para `.env` e prepare o PostgreSQL local.
+
+Use `.\scripts\test-local.ps1` para executar a suíte nativa antes de abrir um pull request.
+
+Para validar a composição Docker já em execução, incluindo saúde dos quatro serviços, migração Prisma e seed idempotente, use:
+
+```powershell
+.\scripts\test-compose.ps1
+```
+
+Acrescente `-Build` para reconstruir as imagens antes da verificação.
+
+## Roteiro de demonstração local
+
+Para uma apresentação, execute os comandos abaixo na ordem indicada:
+
+```powershell
+docker compose up --build -d
+.\scripts\test-compose.ps1
+docker compose ps
+```
+
+O primeiro comando inicia os quatro componentes no computador; o segundo comprova que o banco, a API, o motor e o frontend respondem, que a migração Prisma foi aplicada e que a seed pode rodar novamente sem duplicar dados. O terceiro mostra os contêineres ativos ao vivo.
+
+Mostre no navegador `http://127.0.0.1:5173`, `http://127.0.0.1:3000/health` e `http://127.0.0.1:8000/health`. A documentação interativa do motor fica em `http://127.0.0.1:8000/docs`.
+
+> A demonstração prova a infraestrutura integrada e a massa de dados versionada. O fluxo visual pedido → rota → coleta ainda é uma próxima etapa do MVP, portanto não deve ser apresentado como concluído.
+
+Antes de começar outra tarefa, atualize `main`. Um commit em outra branch — mesmo quando a issue correspondente estiver fechada — não integra automaticamente o MVP. O estado auditado e a ordem das próximas entregas estão em [docs/PROGRESS.md](docs/PROGRESS.md).
+
+## Docker e publicação
+
+`compose.yaml` é a forma reproduzível de executar o MVP local completo. Cloudflare não faz parte da arquitetura nem do fluxo desta branch.
 
 Consulte [a arquitetura](docs/ARCHITECTURE.md), [os contratos](docs/API.md) e [o plano](docs/IMPLEMENTATION_PLAN.md) antes de iniciar a próxima etapa.

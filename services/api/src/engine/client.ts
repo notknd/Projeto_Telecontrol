@@ -1,5 +1,6 @@
 import {
   isEngineRouteResponse,
+  isEngineRouteError,
   matchesEngineRouteRequest,
   type EngineRouteRequest,
   type EngineRouteResponse,
@@ -69,6 +70,20 @@ export class EngineClient {
     }
 
     if (!response.ok) {
+      if (response.status === 422) {
+        let payload: unknown;
+        try {
+          payload = await response.json();
+        } catch (error) {
+          throw new EngineClientError('invalid_response', { cause: error });
+        }
+
+        if (isEngineRouteError(payload) && payload.error.code === 'NO_ROUTE_FOUND') {
+          throw new EngineClientError('no_route_found');
+        }
+        throw new EngineClientError('invalid_response');
+      }
+
       throw new EngineClientError(response.status >= 500 ? 'unavailable' : 'invalid_response');
     }
 
