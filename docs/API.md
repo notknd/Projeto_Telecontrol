@@ -1,5 +1,11 @@
 # Contratos de API
 
+## Governança do contrato interno
+
+O contrato entre a API Fastify e o motor FastAPI é a versão `v1` do endpoint interno. Esta documentação é a fonte de verdade junto dos tipos TypeScript em `services/api/src/engine/contracts.ts` e dos modelos Pydantic em `services/engine/app/main.py`. Alterações incompatíveis devem criar uma nova versão do caminho; mudanças compatíveis devem atualizar documentação e testes no mesmo pull request.
+
+O contrato foi conferido contra o cliente HTTP, o endpoint FastAPI e os testes atuais. A aprovação formal do responsável pelo motor deve ser registrada na revisão do pull request da task #49 antes do fechamento da issue.
+
 ## Saúde da API principal
 
 `GET /health`
@@ -51,6 +57,64 @@ O endpoint não altera o status do pedido nem persiste a rota. Essas transiçõe
 Disponível apenas à API na rede interna. Recebe `warehouse.nodes`, arestas dirigidas com distância em metros, origem, paradas agrupadas por posição, destino e `strategy: "nearest_neighbor"`. O motor usa Dijkstra para cada trecho e Vizinho Mais Próximo para ordenar as paradas. A resposta sempre usa metros, inclui todos os nós do percurso e informa `NO_ROUTE_FOUND` quando algum trecho não é alcançável.
 
 `ENGINE_URL` define a URL do motor, com padrão `http://engine:8000`; `ENGINE_TIMEOUT_MS` define o limite da chamada, com padrão de 5000 ms. A API valida a estrutura, as arestas e a distância retornada antes de devolver a rota.
+
+### Entrada do motor e invariantes
+
+```json
+{
+  "warehouse": {
+    "nodes": [
+      {"id":"UUID_ENTRADA","x":0,"y":0},
+      {"id":"UUID_POSICAO","x":3,"y":2},
+      {"id":"UUID_SAIDA","x":6,"y":0}
+    ],
+    "edges": [
+      {"from":"UUID_ENTRADA","to":"UUID_POSICAO","distance":5.0},
+      {"from":"UUID_POSICAO","to":"UUID_SAIDA","distance":4.0}
+    ]
+  },
+  "startNodeId":"UUID_ENTRADA",
+  "stops":[{"id":"UUID_POSICAO","productIds":["UUID_PRODUTO"]}],
+  "endNodeId":"UUID_SAIDA",
+  "strategy":"nearest_neighbor"
+}
+```
+
+| Campo | Regra |
+| --- | --- |
+| `warehouse.nodes` | Ao menos um nó; `id` não vazio e único; `x` e `y` finitos. |
+| `warehouse.edges` | Arestas dirigidas; extremos existentes; extremos diferentes; distância finita e maior que zero, em metros. |
+| `startNodeId` | Obrigatório e presente no grafo. |
+| `stops` | Ao menos uma parada; cada nó aparece uma vez e pertence ao grafo. Produtos da mesma posição são agrupados. |
+| `stops[].productIds` | Ao menos um ID não vazio e sem repetição dentro da parada. |
+| `endNodeId` | Opcional; quando enviado, deve existir no grafo e ser o último nó da resposta. |
+| `strategy` | Na v1, somente `nearest_neighbor`; cada trecho usa Dijkstra. |
+
+As arestas são dirigidas: o sentido inverso precisa ser representado por outra aresta. Coordenadas não criam conexões. O motor não consulta pedidos, produtos ou PostgreSQL.
+
+### Resposta do motor e erros
+
+Uma resposta `200` contém `status: "success"`, `pathNodeIds`, `stops`, `totalDistance`, `distanceUnit: "m"` e os algoritmos utilizados. O caminho começa em `startNodeId`, termina em `endNodeId` quando informado, usa somente arestas recebidas e tem distância igual à soma dessas arestas. Cada parada solicitada aparece exatamente uma vez, com sequência iniciada em 1 e os mesmos `productIds`.
+
+Todos os erros usam o envelope `{"error":{"code":"...","message":"..."}}` e não expõem stack trace, credenciais ou detalhes internos:
+
+| Situação | HTTP | Código |
+| --- | --- | --- |
+| Payload, grafo, nó ou estratégia inválidos | 422 | `INVALID_ROUTE_REQUEST` |
+| Não existe caminho para cobrir as paradas ou alcançar o destino | 422 | `NO_ROUTE_FOUND` |
+| Falha inesperada no motor | 500 | `ENGINE_INTERNAL_ERROR` |
+
+Exemplos:
+
+```json
+{"error":{"code":"INVALID_ROUTE_REQUEST","message":"A requisição de cálculo é inválida."}}
+```
+
+```json
+{"error":{"code":"NO_ROUTE_FOUND","message":"Não existe caminho válido entre os pontos solicitados."}}
+```
+
+A API traduz falhas de comunicação para `ENGINE_UNAVAILABLE` (503), `ENGINE_TIMEOUT` (504) e `ENGINE_INVALID_RESPONSE` (502). Nenhuma rota inválida é persistida ou devolvida como sucesso.
 
 ## Saúde do motor interno
 
