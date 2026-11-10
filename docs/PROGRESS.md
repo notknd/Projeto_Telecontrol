@@ -1,6 +1,6 @@
 # Acompanhamento do projeto — SmartPick
 
-**Atualizado em:** 26 de outubro de 2026
+**Atualizado em:** 10 de novembro de 2026
 **Branch de integração:** `localhost`
 **Status geral:** fundação técnica concluída; MVP ainda em desenvolvimento e executado localmente como prioridade.
 
@@ -53,6 +53,10 @@ Foi criada uma página Vue mínima que identifica que a fundação está pronta.
 - `docs/IMPLEMENTATION_PLAN.md`: auditoria inicial e plano de execução.
 - `docs/DEVELOPMENT.md`: ambiente padronizado da equipe, execução, verificações e fluxo de trabalho.
 
+### Motor de rotas — issues #8, #15, #16, #17 e #18
+
+O motor Python agora representa o mapa como um grafo, encontra caminhos mínimos com Dijkstra, calcula distâncias até os pontos de coleta, ordena as paradas pelo vizinho mais próximo e monta a rota completa com sequência e distância total. Os testes determinísticos cobrem caminhos alternativos, locais inacessíveis, empates, pontos repetidos, pedidos vazios e destino final.
+
 ## Semana 01 — modelagem de domínio
 
 **Concluída em:** 27 de outubro de 2026
@@ -96,13 +100,12 @@ As verificações não executadas não foram consideradas aprovadas. A prioridad
 - Converter o modelo de dados aprovado em schema Prisma.
 - Criar migrações e um seed repetível de demonstração.
 - Implementar CRUD mínimo de produtos e pedidos.
-- Implementar Dijkstra, testes determinísticos e a heurística de vizinho mais próximo.
+- Integrar o motor de rotas à API Fastify com timeout, validação e tratamento de falhas.
 - Criar o contrato interno de cálculo de rotas.
-- Integrar API Fastify e motor FastAPI com timeout, validação e tratamento de falhas.
 - Criar o fluxo de seleção de pedido e cálculo no frontend.
 - Renderizar mapa 2D, rota e progresso da coleta.
 - Registrar e consultar o histórico de coletas e a comparação com rota convencional.
 
 ## Próxima etapa recomendada
 
-As decisões de domínio da Semana 01 foram detalhadas em [WAREHOUSE_MODEL.md](WAREHOUSE_MODEL.md) e [DATA_MODEL.md](DATA_MODEL.md): nós, conexões, estados, cardinalidades e regras de integridade. O próximo passo é transformar esse modelo em schema Prisma, primeira migração e seed idempotente; esses artefatos ainda não foram implementados.
+As decisões de domínio da Semana 01 foram detalhadas em [WAREHOUSE_MODEL.md](WAREHOUSE_MODEL.md) e [DATA_MODEL.md](DATA_MODEL.md). O próximo passo de integração é conectar o motor de rotas à API, enquanto o schema Prisma, a migração e o seed idempotente continuam sendo necessários para substituir o armazenamento temporário.
