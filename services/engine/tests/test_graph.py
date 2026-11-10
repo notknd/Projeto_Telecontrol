@@ -29,6 +29,18 @@ class WarehouseGraphTests(unittest.TestCase):
         self.assertEqual(graph.distance("a", "b"), 3)
         self.assertEqual(graph.distance("b", "a"), 3)
 
+    def test_can_build_directed_adjacency_for_route_calculation(self) -> None:
+        graph = WarehouseGraph(
+            WarehouseMap(
+                [WarehouseNode("a"), WarehouseNode("b")],
+                [WarehouseEdge("a", "b", 3)],
+            ),
+            directed=True,
+        )
+
+        self.assertEqual(dict(graph.neighbors("a")), {"b": 3})
+        self.assertEqual(dict(graph.neighbors("b")), {})
+
     def test_unknown_node_is_reported(self) -> None:
         graph = WarehouseGraph(WarehouseMap([WarehouseNode("a")], []))
 
