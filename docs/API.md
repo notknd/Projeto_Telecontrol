@@ -169,3 +169,20 @@ Erros:
 - `404 WAREHOUSE_NODE_NOT_FOUND` ou `PRODUCT_NOT_FOUND`;
 - `409 PRODUCT_SKU_ALREADY_EXISTS`;
 - `422 WAREHOUSE_NODE_INACTIVE`.
+
+## Pedidos
+
+`POST /api/v1/orders` cria um pedido pendente. Cada item referencia um produto ativo com estoque suficiente; a API registra snapshots de SKU e nome para preservar o histórico do pedido.
+
+```json
+{
+  "code": "ORDER-001",
+  "items": [
+    {"productId":"UUID_DO_PRODUTO","quantity":2}
+  ]
+}
+```
+
+`GET /api/v1/orders` lista pedidos, e `GET /api/v1/orders/:orderId` devolve os dados e os itens de um pedido.
+
+Erros: `400 INVALID_ORDER_REQUEST`, `404 ORDER_NOT_FOUND` ou `PRODUCT_NOT_FOUND`, `409 ORDER_CODE_ALREADY_EXISTS` e `422 PRODUCT_NOT_ORDERABLE`.

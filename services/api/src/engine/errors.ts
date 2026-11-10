@@ -71,6 +71,16 @@ export function toPublicApiError(error: unknown): PublicApiError {
     };
   }
 
+  if (error instanceof Error && error.name === 'OrderRequestError' &&
+    typeof (error as Error & { statusCode?: unknown }).statusCode === 'number' &&
+    typeof (error as Error & { code?: unknown }).code === 'string') {
+    const orderError = error as Error & { statusCode: number; code: string };
+    return {
+      statusCode: orderError.statusCode,
+      body: { error: { code: orderError.code, message: error.message } },
+    };
+  }
+
   if (error instanceof Error && error.name === 'InvalidRouteCalculationRequest') {
     return {
       statusCode: 400,

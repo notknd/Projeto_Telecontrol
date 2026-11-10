@@ -7,11 +7,14 @@ import { registerCalculateRoute } from './routes/calculate-route.js';
 import { createPrismaRouteDataSource, type RouteDataSource } from './routes/route-data-source.js';
 import { createPrismaProductDataSource, type ProductDataSource } from './routes/product-data-source.js';
 import { registerProductRoutes } from './routes/products.js';
+import { createPrismaOrderDataSource, type OrderDataSource } from './routes/order-data-source.js';
+import { registerOrderRoutes } from './routes/orders.js';
 
 export function buildServer(
   engineClient: EngineClient = createEngineClient(),
   routeDataSource: RouteDataSource = createPrismaRouteDataSource(),
   productDataSource: ProductDataSource = createPrismaProductDataSource(),
+  orderDataSource: OrderDataSource = createPrismaOrderDataSource(),
 ) {
   const server = Fastify({ logger: true });
   server.decorate('engineClient', engineClient);
@@ -20,6 +23,7 @@ export function buildServer(
   server.get('/health', async () => ({ status: 'ok', service: 'api' }));
   registerCalculateRoute(server, routeDataSource);
   registerProductRoutes(server, productDataSource);
+  registerOrderRoutes(server, orderDataSource);
 
   return server;
 }
