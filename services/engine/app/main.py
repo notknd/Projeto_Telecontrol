@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import heapq
 import math
 from typing import Literal
 
@@ -9,6 +8,9 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from app.algorithms.dijkstra import NoPathError, dijkstra
+from app.graph import WarehouseGraph
+from app.graph_models import WarehouseEdge, WarehouseMap, WarehouseNode
 from app.products import DuplicateSkuError, Product, ProductCreate, ProductStore, build_product_store
 
 
@@ -138,27 +140,16 @@ def error_response(status_code: int, code: str, message: str) -> JSONResponse:
     return JSONResponse(status_code=status_code, content={'error': {'code': code, 'message': message}})
 
 
-def shortest_path(adjacency: dict[str, list[tuple[str, float]]], start: str, destination: str) -> tuple[list[str], float] | None:
-    queue: list[tuple[float, str, list[str]]] = [(0.0, start, [start])]
-    distances: dict[str, float] = {start: 0.0}
-    while queue:
-        distance, node_id, path = heapq.heappop(queue)
-        if distance > distances[node_id]:
-            continue
-        if node_id == destination:
-            return path, distance
-        for next_node, edge_distance in adjacency[node_id]:
-            candidate_distance = distance + edge_distance
-            if candidate_distance < distances.get(next_node, math.inf):
-                distances[next_node] = candidate_distance
-                heapq.heappush(queue, (candidate_distance, next_node, [*path, next_node]))
-    return None
+def build_route_graph(warehouse: Warehouse) -> WarehouseGraph:
+    graph = WarehouseMap(
+        nodes=(WarehouseNode(node.id, node.x, node.y) for node in warehouse.nodes),
+        edges=(WarehouseEdge(edge.from_node, edge.to, edge.distance) for edge in warehouse.edges),
+    )
+    return WarehouseGraph(graph, directed=True)
 
 
 def route_for_request(request: RouteRequest) -> RouteResponse:
-    adjacency = {node.id: [] for node in request.warehouse.nodes}
-    for edge in request.warehouse.edges:
-        adjacency[edge.from_node].append((edge.to, edge.distance))
+    graph = build_route_graph(request.warehouse)
 
     remaining = {stop.id: stop for stop in request.stops}
     path_node_ids = [request.startNodeId]
@@ -169,9 +160,12 @@ def route_for_request(request: RouteRequest) -> RouteResponse:
     while remaining:
         candidates: list[tuple[float, str, list[str]]] = []
         for stop_id in sorted(remaining):
-            result = shortest_path(adjacency, current_node, stop_id)
-            if result is not None:
-                segment, distance = result
+            try:
+                result = dijkstra(graph, current_node, stop_id)
+            except NoPathError:
+                continue
+            else:
+                segment, distance = list(result.node_ids), result.distance
                 candidates.append((distance, stop_id, segment))
         if not candidates:
             raise RouteNotFound
@@ -183,10 +177,11 @@ def route_for_request(request: RouteRequest) -> RouteResponse:
         current_node = stop_id
 
     if request.endNodeId is not None:
-        final_segment = shortest_path(adjacency, current_node, request.endNodeId)
-        if final_segment is None:
+        try:
+            final_result = dijkstra(graph, current_node, request.endNodeId)
+        except NoPathError:
             raise RouteNotFound
-        segment, distance = final_segment
+        segment, distance = list(final_result.node_ids), final_result.distance
         path_node_ids.extend(segment[1:])
         total_distance += distance
     return RouteResponse(pathNodeIds=path_node_ids, stops=ordered_stops, totalDistance=total_distance)

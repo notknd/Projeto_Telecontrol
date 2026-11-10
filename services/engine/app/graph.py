@@ -7,9 +7,14 @@ from app.graph_models import WarehouseMap
 
 
 class WarehouseGraph:
-    """Lista de adjacência não direcionada construída a partir de um mapa de armazém validado."""
+    """Lista de adjacência construída a partir de um mapa validado.
 
-    def __init__(self, warehouse: WarehouseMap) -> None:
+    Por padrão, preserva o comportamento não direcionado da task do grafo.
+    O cálculo de rotas pode solicitar uma representação dirigida por meio de
+    ``directed=True``.
+    """
+
+    def __init__(self, warehouse: WarehouseMap, *, directed: bool = False) -> None:
         adjacency: dict[str, dict[str, float]] = {
             node.id: {} for node in warehouse.nodes
         }
@@ -18,7 +23,8 @@ class WarehouseGraph:
             current = adjacency[edge.from_node].get(edge.to_node)
             if current is None or edge.distance < current:
                 adjacency[edge.from_node][edge.to_node] = edge.distance
-                adjacency[edge.to_node][edge.from_node] = edge.distance
+                if not directed:
+                    adjacency[edge.to_node][edge.from_node] = edge.distance
         self._adjacency = adjacency
 
     @property
