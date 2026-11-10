@@ -75,6 +75,7 @@ export class EngineClient {
         try {
           payload = await response.json();
         } catch (error) {
+          if (signal.aborted) throw new EngineClientError('timeout', { cause: error });
           throw new EngineClientError('invalid_response', { cause: error });
         }
 

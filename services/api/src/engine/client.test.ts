@@ -179,6 +179,60 @@ test('rejects malformed JSON and invalid engine payloads', async () => {
   await assert.rejects(rejectedRequest.calculateRoute(request), (error: unknown) =>
     error instanceof EngineClientError && error.kind === 'invalid_response',
   );
+
+  const malformedError = new EngineClient('http://engine.test', 100, async () => new Response('{', { status: 422 }));
+  await assert.rejects(malformedError.calculateRoute(request), (error: unknown) =>
+    error instanceof EngineClientError && error.kind === 'invalid_response',
+  );
+});
+
+test('rejects duplicate response stops and mismatched product ids', async () => {
+  const twoStopRequest: EngineRouteRequest = {
+    ...request,
+    warehouse: {
+      nodes: [...request.warehouse.nodes, { id: 'P13', x: 4, y: 2 }],
+      edges: [...request.warehouse.edges, { from: 'P12', to: 'P13', distance: 2 }],
+    },
+    stops: [...request.stops, { id: 'P13', productIds: ['PROD-B'] }],
+  };
+  const duplicateStops = new EngineClient('http://engine.test', 100, async () => jsonResponse({
+    ...success,
+    pathNodeIds: ['ENTRADA', 'P12', 'P13', 'ENTRADA'],
+    stops: [
+      { nodeId: 'P12', sequence: 1, productIds: ['PROD-A'] },
+      { nodeId: 'P12', sequence: 2, productIds: ['PROD-A'] },
+    ],
+  }));
+  await assert.rejects(duplicateStops.calculateRoute(twoStopRequest), (error: unknown) =>
+    error instanceof EngineClientError && error.kind === 'invalid_response',
+  );
+
+  const mismatchedProducts = new EngineClient('http://engine.test', 100, async () => jsonResponse({
+    ...success,
+    stops: [{ nodeId: 'P12', sequence: 1, productIds: ['PROD-B'] }],
+  }));
+  await assert.rejects(mismatchedProducts.calculateRoute(request), (error: unknown) =>
+    error instanceof EngineClientError && error.kind === 'invalid_response',
+  );
+});
+
+test('maps a timeout while reading an error response body to timeout', async () => {
+  let signal: AbortSignal | undefined;
+  const response = new Response('{}', { status: 422 });
+  Object.defineProperty(response, 'json', {
+    value: async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      throw signal?.reason;
+    },
+  });
+  const client = new EngineClient('http://engine.test', 5, async (_input, init) => {
+    signal = init?.signal as AbortSignal;
+    return response;
+  });
+
+  await assert.rejects(client.calculateRoute(request), (error: unknown) =>
+    error instanceof EngineClientError && error.kind === 'timeout',
+  );
 });
 
 test('maps engine failures to safe public errors without exposing causes', () => {

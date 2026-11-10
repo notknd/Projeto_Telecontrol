@@ -24,7 +24,7 @@ Resposta de sucesso (`200`):
 
 Recebe somente a identificação persistida do pedido. A API consulta os itens, as posições ativas e o grafo do armazém; então envia ao motor apenas os dados necessários para o cálculo.
 
-Requisição:
+Requisição. O corpo deve ser um objeto com `orderId` obrigatório, do tipo string UUID:
 
 ```json
 {"orderId":"UUID_DO_PEDIDO"}
@@ -46,7 +46,16 @@ Resposta de sucesso (`200`):
 }
 ```
 
-Erros: `400 INVALID_ROUTE_REQUEST` para corpo inválido; `404 ORDER_NOT_FOUND` para pedido inexistente; `422 ORDER_NOT_ROUTABLE`, `WAREHOUSE_CONFIGURATION_INVALID` ou `NO_ROUTE_FOUND` quando não for possível calcular uma rota completa; `503 ENGINE_UNAVAILABLE`, `504 ENGINE_TIMEOUT` e `502 ENGINE_INVALID_RESPONSE` para falhas na integração.
+| Situação | HTTP | Código |
+| --- | --- | --- |
+| Corpo ausente, não objeto, sem `orderId` ou UUID inválido | 400 | `INVALID_ROUTE_REQUEST` |
+| Pedido inexistente | 404 | `ORDER_NOT_FOUND` |
+| Pedido sem itens coletáveis | 422 | `ORDER_NOT_ROUTABLE` |
+| Armazém ou coordenadas inválidos | 422 | `WAREHOUSE_CONFIGURATION_INVALID` |
+| Nenhum caminho completo encontrado | 422 | `NO_ROUTE_FOUND` |
+| Motor indisponível ou resposta 5xx do motor | 503 | `ENGINE_UNAVAILABLE` |
+| Timeout na chamada ou na leitura da resposta do motor | 504 | `ENGINE_TIMEOUT` |
+| Resposta HTTP ou JSON incompatível com o contrato | 502 | `ENGINE_INVALID_RESPONSE` |
 
 O endpoint não altera o status do pedido nem persiste a rota. Essas transições serão tratadas pelo fluxo de coleta e persistência.
 
@@ -94,7 +103,7 @@ As arestas são dirigidas: o sentido inverso precisa ser representado por outra 
 
 ### Resposta do motor e erros
 
-Uma resposta `200` contém `status: "success"`, `pathNodeIds`, `stops`, `totalDistance`, `distanceUnit: "m"` e os algoritmos utilizados. O caminho começa em `startNodeId`, termina em `endNodeId` quando informado, usa somente arestas recebidas e tem distância igual à soma dessas arestas. Cada parada solicitada aparece exatamente uma vez, com sequência iniciada em 1 e os mesmos `productIds`.
+Uma resposta `200` contém, obrigatoriamente, `status` (`"success"`), `pathNodeIds` (lista de strings não vazia), `stops` (lista de paradas), `totalDistance` (número finito não negativo), `distanceUnit` (`"m"`) e `algorithm` (`shortestPath: "dijkstra"`, `visitOrder: "nearest_neighbor"`). O caminho começa em `startNodeId`, termina em `endNodeId` quando informado, usa somente arestas recebidas e tem distância igual à soma dessas arestas. Cada parada solicitada aparece exatamente uma vez, sem duplicação, com sequência inteira iniciada em 1 e a lista de `productIds` exatamente igual à enviada para aquela posição.
 
 Todos os erros usam o envelope `{"error":{"code":"...","message":"..."}}` e não expõem stack trace, credenciais ou detalhes internos:
 
@@ -114,7 +123,7 @@ Exemplos:
 {"error":{"code":"NO_ROUTE_FOUND","message":"Não existe caminho válido entre os pontos solicitados."}}
 ```
 
-A API traduz falhas de comunicação para `ENGINE_UNAVAILABLE` (503), `ENGINE_TIMEOUT` (504) e `ENGINE_INVALID_RESPONSE` (502). Nenhuma rota inválida é persistida ou devolvida como sucesso.
+A API traduz falhas de comunicação, respostas 5xx e timeouts de leitura para `ENGINE_UNAVAILABLE` (503) e `ENGINE_TIMEOUT` (504). JSON malformado, envelope de erro desconhecido, campos ausentes, paradas duplicadas ou produtos divergentes resultam em `ENGINE_INVALID_RESPONSE` (502). Nenhuma rota inválida é persistida ou devolvida como sucesso.
 
 ## Saúde do motor interno
 
