@@ -88,14 +88,16 @@ export function isEngineRouteResponse(value: unknown): value is EngineRouteRespo
   if (value.distanceUnit !== 'm' || !isRecord(value.algorithm)) return false;
   if (value.algorithm.shortestPath !== 'dijkstra' || value.algorithm.visitOrder !== 'nearest_neighbor') return false;
 
-  return value.stops.every((stop, index) =>
-    isRecord(stop) &&
-    typeof stop.nodeId === 'string' &&
-    pathNodeIds.includes(stop.nodeId) &&
-    stop.sequence === index + 1 &&
-    isStringArray(stop.productIds) &&
-    stop.productIds.length > 0,
-  );
+  const stopNodeIds = new Set<string>();
+  return value.stops.every((stop, index) => {
+    if (!isRecord(stop) || typeof stop.nodeId !== 'string' ||
+      !pathNodeIds.includes(stop.nodeId) || stopNodeIds.has(stop.nodeId) ||
+      stop.sequence !== index + 1 || !isStringArray(stop.productIds) || stop.productIds.length === 0) {
+      return false;
+    }
+    stopNodeIds.add(stop.nodeId);
+    return true;
+  });
 }
 
 export function isEngineRouteError(value: unknown): value is EngineRouteError {
@@ -126,10 +128,13 @@ export function matchesEngineRouteRequest(
   const requestedStops = new Map(request.stops.map((stop) => [stop.id, stop.productIds]));
   if (requestedStops.size !== request.stops.length) return false;
 
+  const responseStopIds = new Set<string>();
   return response.stops.every((stop) => {
+    if (responseStopIds.has(stop.nodeId)) return false;
+    responseStopIds.add(stop.nodeId);
     const productIds = requestedStops.get(stop.nodeId);
     return productIds !== undefined &&
       productIds.length === stop.productIds.length &&
-      productIds.every((productId) => stop.productIds.includes(productId));
+      productIds.every((productId, index) => stop.productIds[index] === productId);
   });
 }
