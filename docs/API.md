@@ -139,6 +139,35 @@ Resposta de sucesso (`200`):
 
 Os demais contratos públicos de negócio, sob `/api/v1`, permanecem separados do contrato interno de cálculo.
 
+## Atualização da coleta
+
+`PATCH /api/v1/collections/:collectionId/items/:itemId`
+
+Registra a quantidade acumulada coletada de um item. O corpo deve conter `collectedQuantity` como número inteiro não negativo, sem ultrapassar a quantidade solicitada. A operação é transacional: atualiza o item da coleta, o item do pedido e o estoque correspondente. Quando todos os itens atingem suas quantidades solicitadas, a coleta, a rota e o pedido passam para `COMPLETED`.
+
+```json
+{"collectedQuantity":2}
+```
+
+Resposta `200`:
+
+```json
+{
+  "collectionId":"UUID_DA_COLETA",
+  "item":{
+    "id":"UUID_DO_ITEM_DA_COLETA",
+    "orderItemId":"UUID_DO_ITEM_DO_PEDIDO",
+    "requestedQuantity":2,
+    "collectedQuantity":2,
+    "collectedAt":"2026-11-15T12:00:00.000Z"
+  },
+  "collectionStatus":"COMPLETED",
+  "orderStatus":"COMPLETED"
+}
+```
+
+Erros: `400 INVALID_COLLECTION_REQUEST` para IDs ou corpo inválidos; `404 COLLECTION_ITEM_NOT_FOUND` para item inexistente; `422 COLLECTION_NOT_IN_PROGRESS`, `INVALID_COLLECTION_QUANTITY`, `INSUFFICIENT_STOCK` ou `COLLECTION_CONFIGURATION_INVALID` para violações de estado, quantidade, estoque ou vínculo de domínio.
+
 ## Cadastro temporário de produtos no motor
 
 `POST /api/v1/products`
