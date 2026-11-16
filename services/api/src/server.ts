@@ -15,12 +15,9 @@ import { registerOrderRoutes } from './routes/orders.js';
 export function buildServer(
   engineClient: EngineClient = createEngineClient(),
   routeDataSource: RouteDataSource = createPrismaRouteDataSource(),
-<<<<<<< HEAD
   productDataSource: ProductDataSource = createPrismaProductDataSource(),
   orderDataSource: OrderDataSource = createPrismaOrderDataSource(),
-=======
   collectionDataSource: CollectionDataSource = createPrismaCollectionDataSource(),
->>>>>>> 7acda9fe5d77a014aa3d936c20980a049a969b47
 ) {
   const server = Fastify({ logger: true });
   server.decorate('engineClient', engineClient);
@@ -28,12 +25,9 @@ export function buildServer(
 
   server.get('/health', async () => ({ status: 'ok', service: 'api' }));
   registerCalculateRoute(server, routeDataSource);
-<<<<<<< HEAD
   registerProductRoutes(server, productDataSource);
   registerOrderRoutes(server, orderDataSource);
-=======
   registerCollectionRoutes(server, collectionDataSource);
->>>>>>> 7acda9fe5d77a014aa3d936c20980a049a969b47
 
   return server;
 }
