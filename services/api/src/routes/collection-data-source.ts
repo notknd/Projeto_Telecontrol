@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { RouteCalculationError } from './calculate-route.js';
 
 export interface CollectionUpdateResult {
@@ -14,8 +14,72 @@ export interface CollectionUpdateResult {
   orderStatus: 'PENDING' | 'ROUTED' | 'COLLECTING' | 'COMPLETED' | 'CANCELLED';
 }
 
+export interface CollectionCompletionResult {
+  collectionId: string;
+  collectionStatus: 'COMPLETED';
+  orderId: string;
+  orderStatus: 'COMPLETED';
+  completedAt: Date;
+}
+
+export interface CollectionHistoryEntry {
+  collectionId: string;
+  order: { id: string; code: string };
+  routeId: string;
+  startedAt: Date;
+  completedAt: Date;
+  itemCount: number;
+  requestedQuantity: number;
+  collectedQuantity: number;
+}
+
 export interface CollectionDataSource {
   updateItem(collectionId: string, itemId: string, collectedQuantity: number): Promise<CollectionUpdateResult>;
+  complete(collectionId: string): Promise<CollectionCompletionResult>;
+  listCompleted(): Promise<CollectionHistoryEntry[]>;
+}
+
+async function completeCollection(transaction: Prisma.TransactionClient, collectionId: string): Promise<CollectionCompletionResult> {
+  const collection = await transaction.collection.findUnique({
+    where: { id: collectionId },
+    include: {
+      order: true,
+      route: true,
+      items: { select: { requestedQuantity: true, collectedQuantity: true } },
+    },
+  });
+
+  if (!collection) {
+    throw new RouteCalculationError(404, 'COLLECTION_NOT_FOUND', 'A coleta não foi encontrada.');
+  }
+  if (collection.status === 'CANCELLED') {
+    throw new RouteCalculationError(422, 'COLLECTION_NOT_IN_PROGRESS', 'A coleta não está em andamento.');
+  }
+  if (collection.route.orderId !== collection.orderId) {
+    throw new RouteCalculationError(422, 'COLLECTION_CONFIGURATION_INVALID', 'A coleta não corresponde à rota do pedido.');
+  }
+  if (collection.items.length === 0 || collection.items.some((item) => item.collectedQuantity !== item.requestedQuantity)) {
+    throw new RouteCalculationError(422, 'COLLECTION_NOT_READY', 'Todos os itens devem ser coletados antes da conclusão.');
+  }
+
+  const completedAt = collection.completedAt ?? new Date();
+  if (collection.status !== 'COMPLETED') {
+    await transaction.collection.update({ where: { id: collectionId }, data: { status: 'COMPLETED', completedAt } });
+  }
+  if (collection.route.status !== 'COMPLETED') {
+    await transaction.route.update({ where: { id: collection.routeId }, data: { status: 'COMPLETED' } });
+  }
+  if (collection.order.status !== 'COMPLETED') {
+    await transaction.order.update({ where: { id: collection.orderId }, data: { status: 'COMPLETED', completedAt } });
+  }
+
+  return {
+    collectionId: collection.id,
+    collectionStatus: 'COMPLETED',
+    orderId: collection.orderId,
+    orderStatus: 'COMPLETED',
+    completedAt,
+  };
 }
 
 export function createPrismaCollectionDataSource(prisma: PrismaClient = new PrismaClient()): CollectionDataSource {
@@ -76,15 +140,9 @@ export function createPrismaCollectionDataSource(prisma: PrismaClient = new Pris
         let collectionStatus: 'IN_PROGRESS' | 'COMPLETED' = 'IN_PROGRESS';
         let orderStatus = collectionItem.collection.order.status;
         if (pendingItems === 0) {
-          const completedAt = new Date();
-          await transaction.collection.update({ where: { id: collectionId }, data: { status: 'COMPLETED', completedAt } });
-          await transaction.route.update({ where: { id: collectionItem.collection.routeId }, data: { status: 'COMPLETED' } });
-          const updatedOrder = await transaction.order.update({
-            where: { id: collectionItem.orderItem.orderId },
-            data: { status: 'COMPLETED', completedAt },
-          });
-          collectionStatus = 'COMPLETED';
-          orderStatus = updatedOrder.status;
+          const completion = await completeCollection(transaction, collectionId);
+          collectionStatus = completion.collectionStatus;
+          orderStatus = completion.orderStatus;
         }
 
         return {
@@ -100,6 +158,30 @@ export function createPrismaCollectionDataSource(prisma: PrismaClient = new Pris
           orderStatus,
         };
       });
+    },
+    async complete(collectionId) {
+      return prisma.$transaction((transaction) => completeCollection(transaction, collectionId));
+    },
+    async listCompleted() {
+      const collections = await prisma.collection.findMany({
+        where: { status: 'COMPLETED' },
+        orderBy: { completedAt: 'desc' },
+        include: {
+          order: { select: { id: true, code: true } },
+          items: { select: { requestedQuantity: true, collectedQuantity: true } },
+        },
+      });
+
+      return collections.map((collection) => ({
+        collectionId: collection.id,
+        order: collection.order,
+        routeId: collection.routeId,
+        startedAt: collection.startedAt,
+        completedAt: collection.completedAt ?? collection.updatedAt,
+        itemCount: collection.items.length,
+        requestedQuantity: collection.items.reduce((total, item) => total + item.requestedQuantity, 0),
+        collectedQuantity: collection.items.reduce((total, item) => total + item.collectedQuantity, 0),
+      }));
     },
   };
 }

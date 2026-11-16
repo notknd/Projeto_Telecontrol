@@ -20,6 +20,8 @@ function parseCollectedQuantity(body: unknown): number {
 }
 
 export function registerCollectionRoutes(server: FastifyInstance, dataSource: CollectionDataSource): void {
+  server.get('/api/v1/collections/history', async () => ({ collections: await dataSource.listCompleted() }));
+
   server.patch<{ Params: { collectionId: string; itemId: string }; Body: unknown }>(
     '/api/v1/collections/:collectionId/items/:itemId',
     async (request) => {
@@ -29,4 +31,9 @@ export function registerCollectionRoutes(server: FastifyInstance, dataSource: Co
       return dataSource.updateItem(collectionId, itemId, collectedQuantity);
     },
   );
+
+  server.post<{ Params: { collectionId: string } }>('/api/v1/collections/:collectionId/complete', async (request) => {
+    const collectionId = parseUuid(request.params.collectionId, 'collectionId');
+    return dataSource.complete(collectionId);
+  });
 }

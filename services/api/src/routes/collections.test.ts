@@ -19,6 +19,28 @@ function dataSource(): CollectionDataSource {
         orderStatus: 'COMPLETED',
       };
     },
+    async complete(receivedCollectionId) {
+      assert.equal(receivedCollectionId, collectionId);
+      return {
+        collectionId,
+        collectionStatus: 'COMPLETED',
+        orderId: '33333333-3333-4333-8333-333333333333',
+        orderStatus: 'COMPLETED',
+        completedAt: new Date('2026-11-15T12:00:00.000Z'),
+      };
+    },
+    async listCompleted() {
+      return [{
+        collectionId,
+        order: { id: '33333333-3333-4333-8333-333333333333', code: 'PED-001' },
+        routeId: '44444444-4444-4444-8444-444444444444',
+        startedAt: new Date('2026-11-15T11:00:00.000Z'),
+        completedAt: new Date('2026-11-15T12:00:00.000Z'),
+        itemCount: 1,
+        requestedQuantity: 2,
+        collectedQuantity: 2,
+      }];
+    },
   };
 }
 
@@ -33,6 +55,29 @@ test('PATCH /api/v1/collections/:id/items/:itemId records collected quantity', a
   assert.equal(response.statusCode, 200);
   assert.equal(response.json().collectionStatus, 'COMPLETED');
   assert.equal(response.json().orderStatus, 'COMPLETED');
+  await server.close();
+});
+
+test('POST /api/v1/collections/:id/complete concludes a fully collected order', async () => {
+  const server = buildServer(undefined, undefined, dataSource());
+  const response = await server.inject({
+    method: 'POST',
+    url: `/api/v1/collections/${collectionId}/complete`,
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.json().collectionStatus, 'COMPLETED');
+  assert.equal(response.json().orderStatus, 'COMPLETED');
+  await server.close();
+});
+
+test('GET /api/v1/collections/history returns completed collections', async () => {
+  const server = buildServer(undefined, undefined, dataSource());
+  const response = await server.inject({ method: 'GET', url: '/api/v1/collections/history' });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.json().collections[0].order.code, 'PED-001');
+  assert.equal(response.json().collections[0].collectedQuantity, 2);
   await server.close();
 });
 
