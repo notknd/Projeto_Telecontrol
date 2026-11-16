@@ -45,7 +45,7 @@ function dataSource(): CollectionDataSource {
 }
 
 test('PATCH /api/v1/collections/:id/items/:itemId records collected quantity', async () => {
-  const server = buildServer(undefined, undefined, dataSource());
+  const server = buildServer(undefined, undefined, undefined, undefined, dataSource());
   const response = await server.inject({
     method: 'PATCH',
     url: `/api/v1/collections/${collectionId}/items/${itemId}`,
@@ -59,7 +59,7 @@ test('PATCH /api/v1/collections/:id/items/:itemId records collected quantity', a
 });
 
 test('POST /api/v1/collections/:id/complete concludes a fully collected order', async () => {
-  const server = buildServer(undefined, undefined, dataSource());
+  const server = buildServer(undefined, undefined, undefined, undefined, dataSource());
   const response = await server.inject({
     method: 'POST',
     url: `/api/v1/collections/${collectionId}/complete`,
@@ -72,7 +72,7 @@ test('POST /api/v1/collections/:id/complete concludes a fully collected order', 
 });
 
 test('GET /api/v1/collections/history returns completed collections', async () => {
-  const server = buildServer(undefined, undefined, dataSource());
+  const server = buildServer(undefined, undefined, undefined, undefined, dataSource());
   const response = await server.inject({ method: 'GET', url: '/api/v1/collections/history' });
 
   assert.equal(response.statusCode, 200);
@@ -82,7 +82,7 @@ test('GET /api/v1/collections/history returns completed collections', async () =
 });
 
 test('collection update rejects invalid identifiers and quantity payloads', async () => {
-  const server = buildServer(undefined, undefined, dataSource());
+  const server = buildServer(undefined, undefined, undefined, undefined, dataSource());
   const invalidId = await server.inject({ method: 'PATCH', url: '/api/v1/collections/not-a-uuid/items/' + itemId, payload: { collectedQuantity: 1 } });
   assert.equal(invalidId.statusCode, 400);
   assert.equal(invalidId.json().error.code, 'INVALID_COLLECTION_REQUEST');
