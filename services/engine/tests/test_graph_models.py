@@ -14,11 +14,11 @@ class WarehouseMapTests(unittest.TestCase):
         self.assertEqual(warehouse.edges[0].distance, 2.5)
 
     def test_rejects_duplicate_node_ids(self) -> None:
-        with self.assertRaisesRegex(ValueError, "unique"):
+        with self.assertRaisesRegex(ValueError, "exclusivos"):
             WarehouseMap([WarehouseNode("entrance"), WarehouseNode("entrance")], [])
 
     def test_rejects_edges_with_unknown_endpoints(self) -> None:
-        with self.assertRaisesRegex(ValueError, "unknown node"):
+        with self.assertRaisesRegex(ValueError, r"nó\(s\) desconhecido\(s\)"):
             WarehouseMap([WarehouseNode("entrance")], [WarehouseEdge("entrance", "x", 1)])
 
     def test_rejects_negative_or_non_finite_distances(self) -> None:
@@ -29,7 +29,7 @@ class WarehouseMapTests(unittest.TestCase):
     def test_rejects_empty_ids_and_non_finite_coordinates(self) -> None:
         with self.assertRaisesRegex(ValueError, "id"):
             WarehouseNode(" ")
-        with self.assertRaisesRegex(ValueError, "coordinate"):
+        with self.assertRaisesRegex(ValueError, "coordenada"):
             WarehouseNode("aisle", float("nan"), 0)
 
 

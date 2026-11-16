@@ -75,6 +75,7 @@ São definidos em detalhe no [modelo do armazém](WAREHOUSE_MODEL.md). Os campos
 | `id` | UUID. |
 | `sku` | Obrigatório e único; identificador de negócio. |
 | `name` | Obrigatório. |
+| `category` e `weightKg` | Categoria opcional e peso não negativo em quilogramas; preservam os atributos já previstos para o cadastro de produto. |
 | `stockQuantity` | Inteiro maior ou igual a zero. |
 | `warehouseNodeId` | Obrigatório para produto disponível à coleta; referencia um `WarehouseNode` do tipo `STORAGE` ativo. |
 | `isActive` | Produto desativado não entra em pedidos novos, mas permanece no histórico. |
@@ -85,7 +86,7 @@ No MVP, um produto ocupa uma única posição de estoque. Um nó de armazenagem 
 
 | Entidade | Campos e regras |
 | --- | --- |
-| `Order` | `id`, `status`, `createdAt`, `completedAt?`, `cancelledAt?`. Um pedido tem ao menos um item antes de poder sair de `PENDING`. |
+| `Order` | `id`, `code` único, `status`, `createdAt`, `completedAt?`, `cancelledAt?`. O código dá uma referência de negócio estável e torna o seed determinístico. Um pedido tem ao menos um item antes de poder sair de `PENDING`. |
 | `OrderItem` | `id`, `orderId`, `productId`, `requestedQuantity`, `collectedQuantity` (inicia em zero), `productSkuSnapshot`, `productNameSnapshot`. O par `(orderId, productId)` é único; itens repetidos são somados, não duplicados. |
 
 Ao criar ou alterar um item em `PENDING`, a API valida que o produto está ativo, possui posição válida e que `requestedQuantity` não excede o estoque disponível. A atualização de coleta que aumenta `collectedQuantity` diminui `Product.stockQuantity` na **mesma transação**. Isso impede que o histórico e o estoque fiquem divergentes se uma operação falhar.

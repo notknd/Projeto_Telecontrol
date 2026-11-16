@@ -66,7 +66,7 @@ class ProductUpdate(BaseModel):
 
 
 class DuplicateSkuError(Exception):
-    """Raised when attempting to register an existing SKU."""
+    """Gerado ao tentar cadastrar um SKU já existente."""
 
 
 class ProductNotFoundError(Exception):
@@ -74,7 +74,7 @@ class ProductNotFoundError(Exception):
 
 
 class ProductStore:
-    """Small JSON repository used until the database migration is available."""
+    """Pequeno repositório JSON utilizado até que a migração para o banco de dados esteja disponível."""
 
     def __init__(self, file_path: Path) -> None:
         self.file_path = file_path
@@ -154,6 +154,6 @@ class ProductStore:
 
 
 def build_product_store() -> ProductStore:
-    """Creates the store using an optional path configured by the environment."""
+    """Cria o armazenamento usando um caminho opcional configurado pelo ambiente."""
     file_name = os.environ.get("PRODUCTS_FILE_PATH", "data/products.json")
     return ProductStore(Path(file_name))

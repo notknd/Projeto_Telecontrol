@@ -1,0 +1,212 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum WarehouseNodeType {
+  ENTRY
+  EXIT
+  AISLE
+  INTERSECTION
+  STORAGE
+}
+
+enum OrderStatus {
+  PENDING
+  ROUTED
+  COLLECTING
+  COMPLETED
+  CANCELLED
+}
+
+enum RouteStatus {
+  CALCULATED
+  SUPERSEDED
+  IN_USE
+  COMPLETED
+  INVALIDATED
+}
+
+enum CollectionStatus {
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model WarehouseNode {
+  id            String            @id @default(uuid()) @db.Uuid
+  code          String            @unique @db.VarChar(80)
+  type          WarehouseNodeType
+  x             Decimal           @db.Decimal(12, 3)
+  y             Decimal           @db.Decimal(12, 3)
+  label         String?           @db.VarChar(120)
+  isActive      Boolean           @default(true)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  products      Product[]
+  outgoingEdges WarehouseEdge[]   @relation("WarehouseEdgeFrom")
+  incomingEdges WarehouseEdge[]   @relation("WarehouseEdgeTo")
+  routeSteps    RouteStep[]
+  routeStops    RouteStop[]
+}
+
+model WarehouseEdge {
+  id             String        @id @default(uuid()) @db.Uuid
+  fromNodeId     String        @db.Uuid
+  toNodeId       String        @db.Uuid
+  distanceMeters Decimal       @db.Decimal(12, 3)
+  isActive       Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  fromNode       WarehouseNode @relation("WarehouseEdgeFrom", fields: [fromNodeId], references: [id], onDelete: Restrict)
+  toNode         WarehouseNode @relation("WarehouseEdgeTo", fields: [toNodeId], references: [id], onDelete: Restrict)
+
+  @@unique([fromNodeId, toNodeId])
+  @@index([fromNodeId])
+  @@index([toNodeId])
+}
+
+model Product {
+  id              String        @id @default(uuid()) @db.Uuid
+  sku             String        @unique @db.VarChar(50)
+  name            String        @db.VarChar(120)
+  category        String?       @db.VarChar(80)
+  weightKg        Decimal       @db.Decimal(10, 3)
+  stockQuantity   Int           @default(0)
+  warehouseNodeId String        @db.Uuid
+  isActive        Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  warehouseNode   WarehouseNode @relation(fields: [warehouseNodeId], references: [id], onDelete: Restrict)
+  orderItems      OrderItem[]
+
+  @@index([warehouseNodeId])
+}
+
+model Order {
+  id          String       @id @default(uuid()) @db.Uuid
+  code        String       @unique @db.VarChar(50)
+  status      OrderStatus  @default(PENDING)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  completedAt DateTime?
+  cancelledAt DateTime?
+  items       OrderItem[]
+  routes      Route[]
+  collections Collection[]
+
+  @@index([status, createdAt])
+}
+
+model OrderItem {
+  id                  String         @id @default(uuid()) @db.Uuid
+  orderId             String         @db.Uuid
+  productId           String         @db.Uuid
+  requestedQuantity   Int
+  collectedQuantity   Int            @default(0)
+  productSkuSnapshot  String         @db.VarChar(50)
+  productNameSnapshot String         @db.VarChar(120)
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  order               Order          @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  product             Product        @relation(fields: [productId], references: [id], onDelete: Restrict)
+  routeStopItem       RouteStopItem?
+  collectionItems     CollectionItem[]
+
+  @@unique([orderId, productId])
+  @@index([productId])
+}
+
+model Route {
+  id                  String      @id @default(uuid()) @db.Uuid
+  orderId             String      @db.Uuid
+  status              RouteStatus @default(CALCULATED)
+  algorithm           String      @db.VarChar(80)
+  totalDistanceMeters Decimal     @db.Decimal(12, 3)
+  distanceUnit        String      @default("m") @db.VarChar(10)
+  inputVersion        Int         @default(1)
+  calculatedAt        DateTime    @default(now())
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+  order               Order       @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  steps               RouteStep[]
+  stops               RouteStop[]
+  collection          Collection?
+
+  @@index([orderId, status, calculatedAt])
+}
+
+model RouteStep {
+  id              String        @id @default(uuid()) @db.Uuid
+  routeId         String        @db.Uuid
+  warehouseNodeId String        @db.Uuid
+  sequence        Int
+  createdAt       DateTime      @default(now())
+  route           Route         @relation(fields: [routeId], references: [id], onDelete: Restrict)
+  warehouseNode   WarehouseNode @relation(fields: [warehouseNodeId], references: [id], onDelete: Restrict)
+
+  @@unique([routeId, sequence])
+  @@index([warehouseNodeId])
+}
+
+model RouteStop {
+  id              String          @id @default(uuid()) @db.Uuid
+  routeId         String          @db.Uuid
+  warehouseNodeId String          @db.Uuid
+  sequence        Int
+  createdAt       DateTime        @default(now())
+  route           Route           @relation(fields: [routeId], references: [id], onDelete: Restrict)
+  warehouseNode   WarehouseNode   @relation(fields: [warehouseNodeId], references: [id], onDelete: Restrict)
+  items           RouteStopItem[]
+
+  @@unique([routeId, sequence])
+  @@unique([routeId, warehouseNodeId])
+}
+
+model RouteStopItem {
+  id          String    @id @default(uuid()) @db.Uuid
+  routeStopId String    @db.Uuid
+  orderItemId String    @unique @db.Uuid
+  createdAt   DateTime  @default(now())
+  routeStop   RouteStop @relation(fields: [routeStopId], references: [id], onDelete: Restrict)
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Restrict)
+
+  @@index([routeStopId])
+}
+
+model Collection {
+  id          String           @id @default(uuid()) @db.Uuid
+  orderId     String           @db.Uuid
+  routeId     String           @unique @db.Uuid
+  status      CollectionStatus @default(IN_PROGRESS)
+  startedAt   DateTime         @default(now())
+  completedAt DateTime?
+  cancelledAt DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  order       Order            @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  route       Route            @relation(fields: [routeId], references: [id], onDelete: Restrict)
+  items       CollectionItem[]
+
+  @@index([orderId, status])
+}
+
+model CollectionItem {
+  id                String     @id @default(uuid()) @db.Uuid
+  collectionId      String     @db.Uuid
+  orderItemId       String     @db.Uuid
+  requestedQuantity Int
+  collectedQuantity Int        @default(0)
+  collectedAt       DateTime?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  collection        Collection @relation(fields: [collectionId], references: [id], onDelete: Restrict)
+  orderItem         OrderItem  @relation(fields: [orderItemId], references: [id], onDelete: Restrict)
+
+  @@unique([collectionId, orderItemId])
+  @@index([orderItemId])
+}
