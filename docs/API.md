@@ -168,6 +168,49 @@ Resposta `200`:
 
 Erros: `400 INVALID_COLLECTION_REQUEST` para IDs ou corpo inválidos; `404 COLLECTION_ITEM_NOT_FOUND` para item inexistente; `422 COLLECTION_NOT_IN_PROGRESS`, `INVALID_COLLECTION_QUANTITY`, `INSUFFICIENT_STOCK` ou `COLLECTION_CONFIGURATION_INVALID` para violações de estado, quantidade, estoque ou vínculo de domínio.
 
+## Conclusão do pedido
+
+`POST /api/v1/collections/:collectionId/complete`
+
+Confirma a conclusão de uma coleta. A API somente conclui a coleta, a rota e o pedido quando todos os itens da coleta têm a quantidade coletada igual à solicitada. A chamada é idempotente para uma coleta já concluída.
+
+Resposta `200`:
+
+```json
+{
+  "collectionId":"UUID_DA_COLETA",
+  "collectionStatus":"COMPLETED",
+  "orderId":"UUID_DO_PEDIDO",
+  "orderStatus":"COMPLETED",
+  "completedAt":"2026-11-15T12:00:00.000Z"
+}
+```
+
+Erros: `400 INVALID_COLLECTION_REQUEST` para identificador inválido; `404 COLLECTION_NOT_FOUND`; `422 COLLECTION_NOT_IN_PROGRESS`, `COLLECTION_NOT_READY` ou `COLLECTION_CONFIGURATION_INVALID` quando a coleta não pode ser concluída.
+
+## Histórico de coletas
+
+`GET /api/v1/collections/history`
+
+Retorna as coletas concluídas, da mais recente para a mais antiga. Cada registro inclui a identificação do pedido, rota, datas e totais de itens e quantidades.
+
+Resposta `200`:
+
+```json
+{
+  "collections":[{
+    "collectionId":"UUID_DA_COLETA",
+    "order":{"id":"UUID_DO_PEDIDO","code":"PED-001"},
+    "routeId":"UUID_DA_ROTA",
+    "startedAt":"2026-11-15T11:00:00.000Z",
+    "completedAt":"2026-11-15T12:00:00.000Z",
+    "itemCount":2,
+    "requestedQuantity":5,
+    "collectedQuantity":5
+  }]
+}
+```
+
 ## Cadastro temporário de produtos no motor
 
 `POST /api/v1/products`
