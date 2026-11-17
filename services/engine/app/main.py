@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 from typing import Literal
 
-from fastapi import FastAPI, HTTPException, Request, status
+from fastapi import FastAPI, HTTPException, Request, Response, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -11,7 +11,15 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from app.algorithms.dijkstra import NoPathError, dijkstra
 from app.graph import WarehouseGraph
 from app.graph_models import WarehouseEdge, WarehouseMap, WarehouseNode
-from app.products import DuplicateSkuError, Product, ProductCreate, ProductStore, build_product_store
+from app.products import (
+    DuplicateSkuError,
+    Product,
+    ProductCreate,
+    ProductNotFoundError,
+    ProductStore,
+    ProductUpdate,
+    build_product_store,
+)
 
 
 class HealthResponse(BaseModel):
