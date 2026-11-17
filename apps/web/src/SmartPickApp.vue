@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { api, type Product, type Order, type Warehouse } from "./services/api";
 import WarehouseMap from "./components/WarehouseMap.vue";
-import AppDialog from "./components/AppDialog.vue";
+import WmsIcon from "./components/WmsIcon.vue";
 const tabs = [
-  ["dashboard", "Painel operacional"],
-  ["products", "Catálogo de produtos"],
-  ["orders", "Pedidos de coleta"],
-  ["route", "Roteirização"],
-  ["active", "Execução de coleta"],
-  ["map", "Planta do armazém"],
-  ["history", "Histórico de coletas"],
+  ["dashboard", "Painel Operacional", "dashboard", "Operação"],
+  ["orders", "Pedidos de Coleta", "orders", ""],
+  ["route", "Roteirização", "new", ""],
+  ["active", "Execução de Coleta", "active", ""],
+  ["products", "Catálogo de Produtos", "products", "Estoque & Planta"],
+  ["map", "Planta do Armazém", "map", ""],
+  ["history", "Histórico de Coletas", "history", "Gestão & Governança"],
 ];
 const page = ref("dashboard"),
   busy = ref(false),
@@ -44,14 +44,21 @@ const pending = computed(() =>
 const active = computed(() =>
   orders.value.filter((o) => o.status === "COLLECTING"),
 );
+const historySearch = ref("");
 const history = computed(() =>
-  orders.value.filter((o) => ["COMPLETED", "CANCELLED"].includes(o.status)),
+  orders.value.filter(
+    (o) =>
+      ["COMPLETED", "CANCELLED"].includes(o.status) &&
+      o.code.toLowerCase().includes(historySearch.value.toLowerCase()),
+  ),
 );
 const filteredProducts = computed(() =>
-  products.value.filter((p) =>
-    `${p.sku} ${p.name} ${p.warehouseNode.code}`
-      .toLowerCase()
-      .includes(search.value.toLowerCase()),
+  products.value.filter(
+    (p) =>
+      (!positionFilter.value || p.warehouseNodeId === positionFilter.value) &&
+      `${p.sku} ${p.name} ${p.warehouseNode.code}`
+        .toLowerCase()
+        .includes(search.value.toLowerCase()),
   ),
 );
 const filteredOrders = computed(() =>
@@ -94,8 +101,7 @@ const title = computed(() => tabs.find((t) => t[0] === page.value)?.[1]);
 const number = (n: number) =>
   n.toLocaleString("pt-BR", { maximumFractionDigits: 3 });
 const date = (v: string) => new Date(v).toLocaleString("pt-BR");
-const productForm = ref(false),
-  editingId = ref("");
+const editingId = ref("");
 const blankProduct = () => ({
   sku: "",
   name: "",
@@ -106,8 +112,8 @@ const blankProduct = () => ({
   isActive: true,
 });
 const productDraft = ref(blankProduct());
-const orderForm = ref(false),
-  orderCode = ref(""),
+const orderCodeInput = ref<HTMLInputElement | null>(null);
+const orderCode = ref(""),
   quantities = ref<Record<string, number>>({});
 const confirmation = ref(false),
   dark = ref(false);
@@ -161,7 +167,6 @@ function editProduct(p?: Product) {
         isActive: p.isActive,
       }
     : blankProduct();
-  productForm.value = true;
 }
 const saveProduct = () =>
   perform(async () => {
@@ -172,7 +177,8 @@ const saveProduct = () =>
       },
       editingId.value || undefined,
     );
-    productForm.value = false;
+    productDraft.value = blankProduct();
+    editingId.value = "";
     await refresh();
   }, "Produto salvo.");
 async function createOrder() {
@@ -189,7 +195,6 @@ async function createOrder() {
   await perform(async () => {
     const o = await api.createOrder({ code: orderCode.value, items });
     selectedId.value = o.id;
-    orderForm.value = false;
     quantities.value = {};
     orderCode.value = "";
     await refresh();
@@ -226,55 +231,233 @@ const cancel = () =>
     confirmation.value = false;
     await refresh();
   }, "Pedido cancelado. Quantidades já coletadas foram preservadas.");
-onMounted(() => perform(refresh));
+const collapsed = ref(false),
+  positionFilter = ref(""),
+  focusNode = ref("");
+const clock = ref(Date.now());
+let ticker: ReturnType<typeof setInterval>;
+const elapsed = computed(() =>
+  collection.value
+    ? duration(clock.value - Date.parse(collection.value.startedAt))
+    : "00:00",
+);
+function duration(ms: number) {
+  const seconds = Math.max(0, Math.floor(ms / 1000));
+  return `${Math.floor(seconds / 60)
+    .toString()
+    .padStart(2, "0")}:${(seconds % 60).toString().padStart(2, "0")}`;
+}
+const nextItem = computed(() =>
+  selectedItems.value.find((i) => i.collectedQuantity < i.requestedQuantity),
+);
+const finishedNodes = computed(
+  () =>
+    route.value?.stops
+      .filter((s) =>
+        s.items.every((link) => {
+          const i = selected.value?.items.find(
+            (i) => i.id === link.orderItemId,
+          );
+          return i && i.collectedQuantity >= i.requestedQuantity;
+        }),
+      )
+      .map((s) => s.warehouseNodeId) ?? [],
+);
+const totals = computed(() =>
+  orders.value
+    .filter((o) => o.status === "COMPLETED")
+    .reduce(
+      (v, o) => {
+        const c = o.collections.find((c) => c.status === "COMPLETED");
+        const r = o.routes.find((r) => r.id === c?.routeId);
+        if (r?.conventionalDistanceMeters != null) {
+          v.conventional += r.conventionalDistanceMeters;
+          v.smart += r.totalDistanceMeters;
+        }
+        return v;
+      },
+      { conventional: 0, smart: 0 },
+    ),
+);
+const focusedProducts = computed(() =>
+  products.value.filter((p) => p.warehouseNodeId === focusNode.value),
+);
+function locate(id: string) {
+  focusNode.value = id;
+  page.value = "map";
+}
+function toggleSidebar() {
+  collapsed.value = !collapsed.value;
+  document.body.classList.toggle("sidebar-collapsed", collapsed.value);
+}
+function exportHistory() {
+  const cell = (v: unknown) =>
+    '"' +
+    String(v ?? "")
+      .replace(/^[=+@\-]/, "'$&")
+      .replace(/"/g, '""') +
+    '"';
+  const rows = history.value.map((o) => {
+    const c =
+      o.collections.find((c) => c.status === "COMPLETED") ?? o.collections[0];
+    const r = o.routes.find((r) => r.id === c?.routeId) ?? o.routes[0];
+    return [
+      o.code,
+      labels[o.status],
+      o.items.length,
+      r?.totalDistanceMeters,
+      r?.conventionalDistanceMeters,
+      c?.completedAt,
+      c?.completedAt
+        ? duration(Date.parse(c.completedAt) - Date.parse(c.startedAt))
+        : "",
+    ];
+  });
+  const blob = new Blob(
+    [
+      "\ufeff" +
+        [
+          [
+            "Pedido",
+            "Situação",
+            "Produtos",
+            "Rota (m)",
+            "Convencional (m)",
+            "Conclusão",
+            "Duração",
+          ],
+          ...rows,
+        ]
+          .map((row) => row.map(cell).join(";"))
+          .join("\r\n"),
+    ],
+    { type: "text/csv;charset=utf-8" },
+  );
+  const url = URL.createObjectURL(blob),
+    a = document.createElement("a");
+  a.href = url;
+  a.download = "smartpick-historico.csv";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+function shortcut(e: KeyboardEvent) {
+  if (
+    e.code === "Space" &&
+    page.value === "active" &&
+    collection.value &&
+    nextItem.value &&
+    !busy.value &&
+    !confirmation.value &&
+    !(e.target as HTMLElement).closest(
+      "input,select,textarea,button,a,[contenteditable]",
+    )
+  ) {
+    e.preventDefault();
+    confirmItem(nextItem.value.id);
+  }
+}
+onMounted(() => {
+  perform(refresh);
+  ticker = setInterval(() => (clock.value = Date.now()), 1000);
+  window.addEventListener("keydown", shortcut);
+});
+onUnmounted(() => {
+  clearInterval(ticker);
+  window.removeEventListener("keydown", shortcut);
+  document.body.classList.remove("sidebar-collapsed");
+});
 </script>
 <template>
   <div class="app-shell">
-    <aside class="sidebar">
-      <a class="brand" href="#" @click.prevent="page = 'dashboard'"
-        ><span class="brand-mark">S</span
-        ><span>SmartPick<small>TELECONTROL</small></span></a
-      >
-      <div class="nav-label">GESTÃO DE COLETAS</div>
-      <nav aria-label="Navegação principal">
-        <button
-          v-for="(t, i) in tabs"
-          :key="t[0]"
-          :class="['nav-button', { selected: page === t[0] }]"
-          :aria-current="page === t[0] ? 'page' : undefined"
-          @click="
-            page = t[0];
-            confirmation = false;
-          "
+    <aside id="sidebar">
+      <div class="brand-wrap">
+        <a class="brand" href="#" @click.prevent="page = 'dashboard'"
+          ><span class="logo-mark">SP</span>
+          <div class="brand-text">
+            <span class="brand-title">SmartPick WMS</span
+            ><span class="brand-sub">Gestão Logística</span>
+          </div></a
+        ><button
+          class="collapse-btn"
+          aria-label="Recolher menu"
+          @click="toggleSidebar"
         >
-          <span class="nav-number">{{ String(i + 1).padStart(2, "0") }}</span
-          >{{ t[1] }}
+          ‹
         </button>
-      </nav>
-      <div class="sidebar-bottom">
-        ● Ambiente local<small>Otimização de rotas de coleta</small>
+      </div>
+      <div class="nav-wrap">
+        <nav id="nav" aria-label="Navegação principal">
+          <template v-for="t in tabs" :key="t[0]"
+            ><div v-if="t[3]" class="nav-section-label">{{ t[3] }}</div>
+            <button
+              :class="{ active: page === t[0] }"
+              :title="t[1]"
+              :aria-current="page === t[0] ? 'page' : undefined"
+              @click="
+                page = t[0];
+                confirmation = false;
+              "
+            >
+              <span class="nav-ico"><WmsIcon :name="t[2]" /></span
+              ><span class="nav-text">{{ t[1] }}</span
+              ><span
+                v-if="t[0] === 'orders' || t[0] === 'products'"
+                class="nav-badge"
+                >{{
+                  t[0] === "orders" ? pending.length : products.length
+                }}</span
+              >
+            </button></template
+          >
+        </nav>
+      </div>
+      <div class="aside-foot">
+        <span class="status-dot"></span>
+        <div class="aside-foot-details">
+          <strong>CD Principal</strong><span>Operação local · Telecontrol</span>
+        </div>
       </div>
     </aside>
-    <div class="main-shell">
-      <header class="topbar">
-        <span
-          >Operação <span class="muted">/ {{ title }}</span></span
-        ><button class="btn" @click="toggleTheme">
-          {{ dark ? "Tema claro" : "Tema escuro" }}
-        </button>
+    <div id="main-layout">
+      <header class="top-bar">
+        <div class="header-left">
+          <button
+            class="btn light sm"
+            aria-label="Alternar menu"
+            @click="toggleSidebar"
+          >
+            ☰</button
+          ><span class="muted">WMS /</span><strong>{{ title }}</strong>
+        </div>
+        <div class="header-right">
+          <button class="btn light sm" @click="toggleTheme">
+            {{ dark ? "Tema claro" : "Tema escuro" }}</button
+          ><button
+            class="btn light sm"
+            :disabled="busy"
+            @click="perform(refresh)"
+          >
+            Atualizar dados</button
+          ><span class="pill">Ambiente local</span>
+        </div>
       </header>
-      <main :aria-busy="busy">
-        <div class="page-heading">
+      <main class="content" :aria-busy="busy">
+        <div class="title">
           <div>
-            <p class="eyebrow">SMARTPICK · ARMAZÉM</p>
-            <h1>{{ title }}</h1>
-            <p class="muted">
-              Acompanhe pedidos, rotas e o progresso das coletas.
-            </p>
+            <h1>
+              {{
+                page === "dashboard" ? "Painel de Controle Operacional" : title
+              }}
+            </h1>
+            <p>Gestão de pedidos, estoque e deslocamento · CD Principal</p>
           </div>
-          <button class="btn" :disabled="busy" @click="perform(refresh)">
-            Atualizar dados
-          </button>
+          <div class="title-actions">
+            <button class="btn light" @click="page = 'orders'">
+              Emitir Pedido</button
+            ><button class="btn light" @click="page = 'route'">
+              Roteirizar Pedidos
+            </button>
+          </div>
         </div>
         <div v-if="busy" class="notice" role="status">
           Processando… Aguarde a confirmação.
@@ -283,192 +466,445 @@ onMounted(() => perform(refresh));
         <div v-if="notice" class="notice success" role="status">
           {{ notice }}
         </div>
-        <template v-if="page === 'dashboard'"
-          ><div class="kpi-grid">
-            <button
-              class="kpi"
-              @click="
-                page = 'orders';
-                statusFilter = '';
-              "
-            >
-              <span>Pedidos aguardando</span
-              ><strong>{{ pending.length }}</strong
-              ><small>Prontos para planejar a coleta</small></button
-            ><button class="kpi" @click="page = 'active'">
-              <span>Coletas em andamento</span
-              ><strong>{{ active.length }}</strong
-              ><small>Execução confirmada no servidor</small></button
-            ><button class="kpi" @click="page = 'history'">
-              <span>Pedidos concluídos</span
-              ><strong>{{
+        <template v-if="page === 'dashboard'">
+          <div class="kpi-strip">
+            <div class="kpi-cell">
+              <span class="kpi-head">Pedidos na fila</span
+              ><strong class="kpi-val">{{ pending.length }}</strong
+              ><span class="kpi-sub">Aguardando liberação para coleta</span>
+            </div>
+            <div class="kpi-cell">
+              <span class="kpi-head">Coleta em andamento</span
+              ><strong class="kpi-val">{{ active.length || "Inativa" }}</strong
+              ><span class="kpi-sub">{{
+                active[0]?.code || "Nenhuma coleta em execução"
+              }}</span>
+            </div>
+            <div class="kpi-cell">
+              <span class="kpi-head">Pedidos expedidos</span
+              ><strong class="kpi-val">{{
                 orders.filter((o) => o.status === "COMPLETED").length
               }}</strong
-              ><small>Histórico da operação</small></button
-            ><button class="kpi" @click="page = 'products'">
-              <span>Produtos ativos</span
-              ><strong>{{ products.filter((p) => p.isActive).length }}</strong
-              ><small>Catálogo do armazém</small>
-            </button>
-          </div>
-          <section class="panel">
-            <div class="panel-heading">
-              <h2>Fila de pedidos</h2>
-              <button
-                class="btn primary"
-                @click="
-                  page = 'orders';
-                  orderForm = true;
-                "
-              >
-                Novo pedido
-              </button>
+              ><span class="kpi-sub">Ordens finalizadas</span>
             </div>
-            <p v-if="!pending.length" class="empty">
-              Nenhum pedido aguardando coleta.
-            </p>
-            <div v-for="o in pending" :key="o.id" class="list-row">
-              <div>
-                <strong>{{ o.code }}</strong>
-                <p class="muted">
-                  {{ o.items.length }} produtos · {{ date(o.createdAt) }}
+            <div class="kpi-cell">
+              <span class="kpi-head">Redução de deslocamento</span
+              ><strong class="kpi-val" :style="{ color: 'var(--green)' }">{{
+                totals.conventional
+                  ? number(
+                      ((totals.conventional - totals.smart) /
+                        totals.conventional) *
+                        100,
+                    ) + "%"
+                  : "—"
+              }}</strong
+              ><span class="kpi-sub"
+                >{{ number(totals.conventional - totals.smart) }} m economizados
+                nas coletas concluídas</span
+              >
+            </div>
+          </div>
+          <div class="split-layout">
+            <section class="card">
+              <div class="card-head">
+                <div>
+                  <h2>Carteira de Pedidos de Separação</h2>
+                  <p class="muted">
+                    Comparativo entre percurso convencional e rota otimizada
+                  </p>
+                </div>
+                <span class="pill">{{ pending.length }} pedidos</span>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Pedido</th>
+                      <th>Volume</th>
+                      <th>Rota otimizada</th>
+                      <th>Convencional</th>
+                      <th>Status</th>
+                      <th>Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="o in pending" :key="o.id">
+                      <td class="mono">{{ o.code }}</td>
+                      <td>
+                        {{ o.items.length }} itens ({{
+                          o.items.reduce((n, i) => n + i.requestedQuantity, 0)
+                        }}
+                        un.)
+                      </td>
+                      <td class="mono">
+                        {{
+                          o.routes[0]
+                            ? number(o.routes[0].totalDistanceMeters) + " m"
+                            : "—"
+                        }}
+                      </td>
+                      <td class="mono">
+                        {{
+                          o.routes[0]?.conventionalDistanceMeters != null
+                            ? number(o.routes[0].conventionalDistanceMeters) +
+                              " m"
+                            : "—"
+                        }}
+                      </td>
+                      <td>
+                        <span class="pill">{{ labels[o.status] }}</span>
+                      </td>
+                      <td>
+                        <button class="btn light sm" @click="openOrder(o)">
+                          Roteirizar
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+                <p v-if="!pending.length" class="empty">
+                  Nenhum pedido aguardando coleta.
                 </p>
               </div>
-              <span :class="['badge', o.status]">{{ labels[o.status] }}</span
-              ><button class="btn" :disabled="busy" @click="openOrder(o)">
-                Planejar coleta →
-              </button>
-            </div>
-          </section></template
-        >
-        <template v-if="page === 'products'"
-          ><section class="panel">
-            <div class="panel-heading">
-              <label class="search"
-                >Buscar produto<input
-                  v-model="search"
-                  placeholder="SKU, nome ou posição"
-                  type="search" /></label
-              ><button
-                class="btn primary"
-                :disabled="busy"
-                @click="editProduct()"
-              >
-                Novo produto
-              </button>
-            </div>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Produto / SKU</th>
-                    <th>Posição</th>
-                    <th>Estoque</th>
-                    <th>Peso</th>
-                    <th>Situação</th>
-                    <th>Ação</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="p in filteredProducts" :key="p.id">
-                    <td>
-                      <strong>{{ p.name }}</strong
-                      ><small>{{ p.sku }}</small>
-                    </td>
-                    <td>{{ p.warehouseNode.code }}</td>
-                    <td>{{ p.stockQuantity }}</td>
-                    <td>{{ number(p.weightKg) }} kg</td>
-                    <td>{{ p.isActive ? "Ativo" : "Inativo" }}</td>
-                    <td>
-                      <button
-                        class="btn"
-                        :disabled="busy"
-                        @click="editProduct(p)"
+            </section>
+            <div class="side-stack">
+              <section class="card">
+                <div class="card-head">
+                  <h2>Execução em Campo</h2>
+                  <span class="status-dot"></span>
+                </div>
+                <div class="pad">
+                  <template v-if="active.length"
+                    ><div v-for="o in active" :key="o.id" class="list-row">
+                      <strong>{{ o.code }}</strong
+                      ><button
+                        class="btn light"
+                        @click="openOrder(o, 'active')"
                       >
-                        Editar
+                        Continuar coleta
                       </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-              <p v-if="!filteredProducts.length" class="empty">
-                Nenhum produto encontrado.
-              </p>
+                    </div></template
+                  ><template v-else
+                    ><p class="muted">
+                      Nenhuma ordem de separação ativa no momento.
+                    </p>
+                    <button class="btn light full" @click="page = 'route'">
+                      Selecionar Pedido para Coleta
+                    </button></template
+                  >
+                </div>
+              </section>
+              <section class="card">
+                <div class="card-head">
+                  <div>
+                    <h2>Planta do Armazém — Prévia</h2>
+                    <small>Pedido: {{ selected?.code || "Nenhum" }}</small>
+                  </div>
+                  <button class="btn light sm" @click="page = 'map'">
+                    Expandir
+                  </button>
+                </div>
+                <WarehouseMap
+                  :warehouse="warehouse"
+                  :route="route"
+                  :products="products"
+                  mini
+                  @select="locate"
+                />
+                <div class="pad">
+                  <button class="btn light full" @click="page = 'map'">
+                    Consultar Endereços
+                  </button>
+                </div>
+              </section>
             </div>
-          </section></template
+          </div>
+        </template>
+        <template v-if="page === 'products'"
+          ><div class="split-layout">
+            <section class="card">
+              <div class="card-head">
+                <label class="search"
+                  >Buscar produto<input
+                    v-model="search"
+                    placeholder="SKU, nome ou posição"
+                    type="search" /></label
+                ><label
+                  >Endereço<select v-model="positionFilter">
+                    <option value="">Todos</option>
+                    <option
+                      v-for="n in warehouse.nodes.filter(
+                        (n) => n.type === 'STORAGE',
+                      )"
+                      :key="n.id"
+                      :value="n.id"
+                    >
+                      {{ n.code }}
+                    </option>
+                  </select></label
+                ><button
+                  class="btn primary"
+                  :disabled="busy"
+                  @click="editProduct()"
+                >
+                  Novo produto
+                </button>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Produto / SKU</th>
+                      <th>Posição</th>
+                      <th>Estoque</th>
+                      <th>Peso</th>
+                      <th>Situação</th>
+                      <th>Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="p in filteredProducts" :key="p.id">
+                      <td>
+                        <strong>{{ p.name }}</strong
+                        ><small>{{ p.sku }}</small>
+                      </td>
+                      <td>
+                        <button
+                          class="address-link"
+                          @click="locate(p.warehouseNodeId)"
+                        >
+                          {{ p.warehouseNode.code }}
+                        </button>
+                      </td>
+                      <td>{{ p.stockQuantity }}</td>
+                      <td>{{ number(p.weightKg) }} kg</td>
+                      <td>{{ p.isActive ? "Ativo" : "Inativo" }}</td>
+                      <td>
+                        <button
+                          class="btn light"
+                          :disabled="busy"
+                          @click="editProduct(p)"
+                        >
+                          Editar
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+                <p v-if="!filteredProducts.length" class="empty">
+                  Nenhum produto encontrado.
+                </p>
+              </div>
+            </section>
+            <aside class="card form-panel">
+              <div class="pad">
+                <h2 id="product-title">
+                  {{ editingId ? "Editar produto" : "Novo produto" }}
+                </h2>
+                <form @submit.prevent="saveProduct">
+                  <fieldset :disabled="busy">
+                    <div class="form-grid">
+                      <label
+                        >SKU<input
+                          v-model="productDraft.sku"
+                          required
+                          maxlength="50" /></label
+                      ><label
+                        >Nome<input
+                          v-model="productDraft.name"
+                          required
+                          maxlength="120" /></label
+                      ><label
+                        >Categoria<input
+                          v-model="productDraft.category"
+                          maxlength="80" /></label
+                      ><label
+                        >Peso (kg)<input
+                          v-model.number="productDraft.weightKg"
+                          type="number"
+                          min="0"
+                          step="0.001"
+                          required /></label
+                      ><label
+                        >Estoque<input
+                          v-model.number="productDraft.stockQuantity"
+                          type="number"
+                          min="0"
+                          step="1"
+                          required /></label
+                      ><label
+                        >Posição<select
+                          aria-label="Posição"
+                          v-model="productDraft.warehouseNodeId"
+                          required
+                        >
+                          <option value="" disabled>Selecione</option>
+                          <option
+                            v-for="n in warehouse.nodes.filter(
+                              (n) => n.type === 'STORAGE',
+                            )"
+                            :key="n.id"
+                            :value="n.id"
+                          >
+                            {{ n.code }}
+                          </option>
+                        </select></label
+                      ><label class="checkbox"
+                        ><input
+                          v-model="productDraft.isActive"
+                          type="checkbox"
+                        />
+                        Produto ativo</label
+                      >
+                    </div>
+                    <p class="muted">
+                      Alterações invalidam rotas pendentes que utilizam este
+                      produto.
+                    </p>
+                    <p v-if="error" role="alert" class="error">{{ error }}</p>
+                    <div class="actions">
+                      <button
+                        type="button"
+                        class="btn light"
+                        @click="editProduct()"
+                      >
+                        Limpar</button
+                      ><button class="btn primary">Salvar produto</button>
+                    </div>
+                  </fieldset>
+                </form>
+              </div>
+            </aside>
+          </div></template
         >
         <template v-if="page === 'orders'"
-          ><section class="panel">
-            <div class="panel-heading">
-              <label
-                >Situação<select v-model="statusFilter">
-                  <option value="">Todos os pedidos</option>
-                  <option
-                    v-for="(label, value) in labels"
-                    :key="value"
-                    :value="value"
-                  >
-                    {{ label }}
-                  </option>
-                </select></label
-              ><button
-                class="btn primary"
-                :disabled="busy"
-                @click="orderForm = true"
-              >
-                Novo pedido
-              </button>
-            </div>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Pedido</th>
-                    <th>Criado em</th>
-                    <th>Produtos</th>
-                    <th>Situação</th>
-                    <th>Ação</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="o in filteredOrders" :key="o.id">
-                    <td>
-                      <strong>{{ o.code }}</strong
-                      ><small v-if="o.code.startsWith('DEMO-')"
-                        >Demonstração</small
-                      >
-                    </td>
-                    <td>{{ date(o.createdAt) }}</td>
-                    <td>{{ o.items.length }}</td>
-                    <td>
-                      <span :class="['badge', o.status]">{{
-                        labels[o.status]
-                      }}</span>
-                    </td>
-                    <td>
+          ><div class="split-layout">
+            <section class="card">
+              <div class="card-head">
+                <label
+                  >Situação<select v-model="statusFilter">
+                    <option value="">Todos os pedidos</option>
+                    <option
+                      v-for="(label, value) in labels"
+                      :key="value"
+                      :value="value"
+                    >
+                      {{ label }}
+                    </option>
+                  </select></label
+                ><button
+                  class="btn primary"
+                  :disabled="busy"
+                  @click="orderCodeInput?.focus()"
+                >
+                  Novo pedido
+                </button>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Pedido</th>
+                      <th>Criado em</th>
+                      <th>Produtos</th>
+                      <th>Situação</th>
+                      <th>Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="o in filteredOrders" :key="o.id">
+                      <td>
+                        <strong>{{ o.code }}</strong
+                        ><small v-if="o.code.startsWith('DEMO-')"
+                          >Demonstração</small
+                        >
+                      </td>
+                      <td>{{ date(o.createdAt) }}</td>
+                      <td>{{ o.items.length }}</td>
+                      <td>
+                        <span :class="['badge', o.status]">{{
+                          labels[o.status]
+                        }}</span>
+                      </td>
+                      <td>
+                        <button
+                          class="btn light"
+                          @click="
+                            openOrder(
+                              o,
+                              o.status === 'COLLECTING' ? 'active' : 'route',
+                            )
+                          "
+                        >
+                          Abrir pedido →
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+                <p v-if="!filteredOrders.length" class="empty">
+                  Nenhum pedido nesta situação.
+                </p>
+              </div>
+            </section>
+            <aside class="card form-panel">
+              <div class="pad">
+                <h2 id="order-title">Novo pedido de coleta</h2>
+                <form @submit.prevent="createOrder">
+                  <fieldset :disabled="busy">
+                    <label
+                      >Código do pedido<input
+                        ref="orderCodeInput"
+                        v-model="orderCode"
+                        required
+                        maxlength="50"
+                        placeholder="Ex.: PED-001"
+                    /></label>
+                    <p class="muted">
+                      Informe as quantidades dos produtos desejados.
+                    </p>
+                    <div class="order-draft">
+                      <label
+                        v-for="p in products.filter((p) => p.isActive)"
+                        :key="p.id"
+                        class="draft-row"
+                        ><span
+                          >{{ p.name
+                          }}<small
+                            >{{ p.sku }} · {{ p.stockQuantity }} em
+                            estoque</small
+                          ></span
+                        ><input
+                          v-model.number="quantities[p.id]"
+                          :aria-label="`Quantidade de ${p.name}`"
+                          type="number"
+                          min="0"
+                          :max="p.stockQuantity"
+                          step="1"
+                          placeholder="0"
+                      /></label>
+                    </div>
+                    <p v-if="error" role="alert" class="error">{{ error }}</p>
+                    <div class="actions">
                       <button
-                        class="btn"
+                        type="button"
+                        class="btn light"
                         @click="
-                          openOrder(
-                            o,
-                            o.status === 'COLLECTING' ? 'active' : 'route',
-                          )
+                          quantities = {};
+                          orderCode = '';
                         "
                       >
-                        Abrir pedido →
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-              <p v-if="!filteredOrders.length" class="empty">
-                Nenhum pedido nesta situação.
-              </p>
-            </div>
-          </section></template
+                        Limpar</button
+                      ><button class="btn primary">Criar pedido</button>
+                    </div>
+                  </fieldset>
+                </form>
+              </div>
+            </aside>
+          </div></template
         >
         <template v-if="['route', 'active', 'map'].includes(page)"
-          ><section class="panel selector">
+          ><section class="card selector">
             <label
               >Pedido<select
                 aria-label="Pedido"
@@ -487,7 +923,7 @@ onMounted(() => perform(refresh));
             <div v-if="selected && page !== 'map'" class="actions">
               <button
                 v-if="['PENDING', 'ROUTED'].includes(selected.status)"
-                class="btn"
+                class="btn light"
                 :disabled="busy"
                 @click="calculate"
               >
@@ -518,7 +954,7 @@ onMounted(() => perform(refresh));
               <button class="btn danger" :disabled="busy" @click="cancel">
                 Confirmar cancelamento</button
               ><button
-                class="btn"
+                class="btn light"
                 :disabled="busy"
                 @click="confirmation = false"
               >
@@ -526,23 +962,163 @@ onMounted(() => perform(refresh));
               </button>
             </div>
           </div>
-          <div class="workspace-grid">
-            <section class="panel">
-              <div class="panel-heading">
+          <div v-if="page === 'active' && collection" class="banner">
+            <div>
+              <small>PRÓXIMO ITEM · TEMPO DECORRIDO {{ elapsed }}</small>
+              <h2>
+                {{
+                  nextItem?.productNameSnapshot || "Todos os itens confirmados"
+                }}
+              </h2>
+              <p v-if="nextItem">
+                {{ stopForItem(nextItem.id)?.warehouseNode.code }} ·
+                {{ nextItem.requestedQuantity - nextItem.collectedQuantity }}
+                unidades pendentes
+              </p>
+            </div>
+            <div class="actions" v-if="nextItem">
+              <button
+                class="btn light"
+                @click="
+                  focusNode = stopForItem(nextItem.id)?.warehouseNodeId || ''
+                "
+              >
+                Localizar no mapa</button
+              ><button
+                class="btn"
+                :disabled="busy"
+                @click="confirmItem(nextItem.id)"
+              >
+                Confirmar próxima · Espaço
+              </button>
+            </div>
+          </div>
+          <div class="split-layout">
+            <section class="card">
+              <div class="card-head">
                 <h2>Planta 2D do armazém</h2>
                 <span class="badge">{{ warehouse.nodes.length }} pontos</span>
               </div>
-              <WarehouseMap :warehouse="warehouse" :route="route" />
+              <WarehouseMap
+                :warehouse="warehouse"
+                :route="route"
+                :products="products"
+                :focus-node="focusNode"
+                :next-node="
+                  collection && nextItem
+                    ? stopForItem(nextItem.id)?.warehouseNodeId
+                    : undefined
+                "
+                :done-nodes="finishedNodes"
+                @select="focusNode = $event"
+              />
+              <div v-if="route" class="easy-compare pad">
+                <h3>Comparação de percursos</h3>
+                <div class="bar-row">
+                  <span class="bar-label">Otimizada</span>
+                  <div class="bar-track">
+                    <div
+                      class="bar-fill smart"
+                      :style="{
+                        width:
+                          (route.totalDistanceMeters /
+                            Math.max(
+                              1,
+                              route.totalDistanceMeters,
+                              route.conventionalDistanceMeters ?? 0,
+                            )) *
+                            100 +
+                          '%',
+                      }"
+                    ></div>
+                  </div>
+                  <strong>{{ number(route.totalDistanceMeters) }} m</strong>
+                </div>
+                <div
+                  v-if="route.conventionalDistanceMeters !== null"
+                  class="bar-row"
+                >
+                  <span class="bar-label">Convencional</span>
+                  <div class="bar-track">
+                    <div
+                      class="bar-fill conv"
+                      :style="{
+                        width:
+                          (route.conventionalDistanceMeters /
+                            Math.max(
+                              1,
+                              route.totalDistanceMeters,
+                              route.conventionalDistanceMeters,
+                            )) *
+                            100 +
+                          '%',
+                      }"
+                    ></div>
+                  </div>
+                  <strong
+                    >{{ number(route.conventionalDistanceMeters) }} m</strong
+                  >
+                </div>
+                <small
+                  >Mesmo grafo; referência convencional segue a ordem dos itens
+                  do pedido.</small
+                >
+              </div>
             </section>
-            <section v-if="selected" class="panel">
-              <div class="panel-heading">
+            <section v-if="page === 'map'" class="card">
+              <div class="card-head"><h2>Consulta de Endereços</h2></div>
+              <div class="pad">
+                <p class="muted">
+                  Clique em uma posição da planta ou escolha um produto.
+                </p>
+                <template v-if="focusNode"
+                  ><h3>
+                    {{ warehouse.nodes.find((n) => n.id === focusNode)?.code }}
+                  </h3>
+                  <p>
+                    {{ warehouse.nodes.find((n) => n.id === focusNode)?.label }}
+                  </p>
+                  <div
+                    v-for="p in focusedProducts"
+                    :key="p.id"
+                    class="list-row"
+                  >
+                    <div>
+                      <strong>{{ p.name }}</strong
+                      ><small
+                        >{{ p.sku }} · {{ p.stockQuantity }} un. ·
+                        {{ p.isActive ? "Ativo" : "Inativo" }}</small
+                      >
+                    </div>
+                  </div>
+                  <p v-if="!focusedProducts.length" class="muted">
+                    Nenhum produto neste ponto.
+                  </p></template
+                >
+                <h3>Produtos endereçados</h3>
+                <button
+                  v-for="p in products"
+                  :key="p.id"
+                  class="address-item"
+                  @click="focusNode = p.warehouseNodeId"
+                >
+                  <strong>{{ p.name }}</strong
+                  ><small
+                    >{{ p.warehouseNode.code }} ·
+                    {{ p.stockQuantity }} un.</small
+                  >
+                </button>
+              </div>
+            </section>
+            <section v-else-if="selected" class="card">
+              <div class="card-head">
                 <h2>
                   {{
                     collection ? "Coleta em andamento" : "Sequência de coleta"
                   }}
                 </h2>
               </div>
-              <div class="panel-body">
+              <div class="pad">
                 <p v-if="selected.code.startsWith('DEMO-')" class="notice">
                   Pedido de demonstração da base Telecontrol.
                 </p>
@@ -634,7 +1210,7 @@ onMounted(() => perform(refresh));
                         collection &&
                         item.collectedQuantity < item.requestedQuantity
                       "
-                      class="btn"
+                      class="btn light"
                       :disabled="busy"
                       @click="confirmItem(item.id)"
                     >
@@ -661,16 +1237,29 @@ onMounted(() => perform(refresh));
                 </button>
               </div>
             </section>
-            <section v-else class="panel empty">
+            <section v-else class="card empty">
               Selecione ou crie um pedido para planejar a coleta.
             </section>
           </div></template
         >
         <template v-if="page === 'history'"
-          ><section class="panel">
-            <div class="panel-heading">
+          ><section class="card">
+            <div class="card-head">
               <h2>Pedidos encerrados</h2>
-              <span class="muted">{{ history.length }} registros</span>
+              <label
+                >Buscar no histórico<input
+                  v-model="historySearch"
+                  type="search"
+                  placeholder="Código do pedido"
+              /></label>
+              <span class="muted">{{ history.length }} registros</span
+              ><button
+                class="btn light"
+                :disabled="!history.length"
+                @click="exportHistory"
+              >
+                Exportar CSV
+              </button>
             </div>
             <div class="table-wrap">
               <table>
@@ -679,6 +1268,8 @@ onMounted(() => perform(refresh));
                     <th>Pedido</th>
                     <th>Situação</th>
                     <th>Distância</th>
+                    <th>Convencional</th>
+                    <th>Duração</th>
                     <th>Coleta concluída em</th>
                     <th>Detalhes</th>
                   </tr>
@@ -702,13 +1293,31 @@ onMounted(() => perform(refresh));
                     </td>
                     <td>
                       {{
+                        o.routes[0]?.conventionalDistanceMeters != null
+                          ? number(o.routes[0].conventionalDistanceMeters) +
+                            " m"
+                          : "—"
+                      }}
+                    </td>
+                    <td>
+                      {{
+                        o.collections[0]?.completedAt
+                          ? duration(
+                              Date.parse(o.collections[0].completedAt) -
+                                Date.parse(o.collections[0].startedAt),
+                            )
+                          : "—"
+                      }}
+                    </td>
+                    <td>
+                      {{
                         o.collections[0]?.completedAt
                           ? date(o.collections[0].completedAt)
                           : "—"
                       }}
                     </td>
                     <td>
-                      <button class="btn" @click="openOrder(o)">
+                      <button class="btn light" @click="openOrder(o)">
                         Ver percurso
                       </button>
                     </td>
@@ -727,125 +1336,5 @@ onMounted(() => perform(refresh));
         </footer>
       </main>
     </div>
-    <AppDialog
-      v-if="productForm"
-      labelledby="product-title"
-      :busy="busy"
-      @close="productForm = false"
-    >
-      <h2 id="product-title">
-        {{ editingId ? "Editar produto" : "Novo produto" }}
-      </h2>
-      <form @submit.prevent="saveProduct">
-        <fieldset :disabled="busy">
-          <div class="form-grid">
-            <label
-              >SKU<input
-                v-model="productDraft.sku"
-                required
-                maxlength="50" /></label
-            ><label
-              >Nome<input
-                v-model="productDraft.name"
-                required
-                maxlength="120" /></label
-            ><label
-              >Categoria<input
-                v-model="productDraft.category"
-                maxlength="80" /></label
-            ><label
-              >Peso (kg)<input
-                v-model.number="productDraft.weightKg"
-                type="number"
-                min="0"
-                step="0.001"
-                required /></label
-            ><label
-              >Estoque<input
-                v-model.number="productDraft.stockQuantity"
-                type="number"
-                min="0"
-                step="1"
-                required /></label
-            ><label
-              >Posição<select
-                aria-label="Posição"
-                v-model="productDraft.warehouseNodeId"
-                required
-              >
-                <option value="" disabled>Selecione</option>
-                <option
-                  v-for="n in warehouse.nodes.filter(
-                    (n) => n.type === 'STORAGE',
-                  )"
-                  :key="n.id"
-                  :value="n.id"
-                >
-                  {{ n.code }}
-                </option>
-              </select></label
-            ><label class="checkbox"
-              ><input v-model="productDraft.isActive" type="checkbox" /> Produto
-              ativo</label
-            >
-          </div>
-          <p class="muted">
-            Alterações invalidam rotas pendentes que utilizam este produto.
-          </p>
-          <p v-if="error" role="alert" class="error">{{ error }}</p>
-          <div class="actions">
-            <button type="button" class="btn" @click="productForm = false">
-              Voltar</button
-            ><button class="btn primary">Salvar produto</button>
-          </div>
-        </fieldset>
-      </form>
-    </AppDialog>
-    <AppDialog
-      v-if="orderForm"
-      labelledby="order-title"
-      :busy="busy"
-      @close="orderForm = false"
-    >
-      <h2 id="order-title">Novo pedido de coleta</h2>
-      <form @submit.prevent="createOrder">
-        <fieldset :disabled="busy">
-          <label
-            >Código do pedido<input
-              v-model="orderCode"
-              required
-              maxlength="50"
-              placeholder="Ex.: PED-001"
-          /></label>
-          <p class="muted">Informe as quantidades dos produtos desejados.</p>
-          <div class="order-draft">
-            <label
-              v-for="p in products.filter((p) => p.isActive)"
-              :key="p.id"
-              class="draft-row"
-              ><span
-                >{{ p.name
-                }}<small
-                  >{{ p.sku }} · {{ p.stockQuantity }} em estoque</small
-                ></span
-              ><input
-                v-model.number="quantities[p.id]"
-                :aria-label="`Quantidade de ${p.name}`"
-                type="number"
-                min="0"
-                :max="p.stockQuantity"
-                step="1"
-                placeholder="0"
-            /></label>
-          </div>
-          <p v-if="error" role="alert" class="error">{{ error }}</p>
-          <div class="actions">
-            <button type="button" class="btn" @click="orderForm = false">
-              Voltar</button
-            ><button class="btn primary">Criar pedido</button>
-          </div>
-        </fieldset>
-      </form>
-    </AppDialog>
   </div>
 </template>

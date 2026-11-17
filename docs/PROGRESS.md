@@ -32,8 +32,8 @@ Uma issue fechada no GitHub só é tratada como entrega integrada quando o commi
 
 | Issue | Estado no GitHub | Branch/commit observado | Situação para o MVP |
 | --- | --- | --- | --- |
-| #8 e #15 — grafo executável e Dijkstra | Abertas | `codex/issue-15-dijkstra-shortest-path-updated`, commits `b62cced` e `f19fdfc` | Implementação e testes existem, mas não foram mesclados; revisar e atualizar contra `main`. |
-| #35 — cenários de pedidos para rota | Fechada | `codex/issue-35-order-scenarios`, commit `f381735` | O teste não está em `main`; reabrir ou documentar a integração antes de considerá-lo entregue. |
+| #8 e #15 — grafo executável e Dijkstra | Abertas | Commits `b62cced` e `f19fdfc` | Implementação e testes existem, mas não foram mesclados; revisar e atualizar contra `main`. |
+| #35 — cenários de pedidos para rota | Fechada | Commit `f381735` | O teste não está em `main`; reabrir ou documentar a integração antes de considerá-lo entregue. |
 | #49 — contrato API ↔ motor | Aberta | `issue-49-route-contract`, commit `a760293` | A branch não possui ancestral comum com `main`; o contrato deve ser reconstruído/reaplicado sobre a base atual. |
 | #50 — cliente resiliente do motor | Fechada | `issue-50-engine-api-client`, commit `548bbf1` | O código não está em `main` e parte de base antiga; revisar, rebasear e integrar antes de marcar como disponível. |
 

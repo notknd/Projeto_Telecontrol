@@ -1,5 +1,14 @@
 # Contratos de API
 
+## Galpões
+
+- `GET /api/v1/warehouses`: lista galpões ativos (`id`, `code`, `name`, `isActive`).
+- `GET /api/v1/warehouse?warehouseId=UUID`: grafo do galpão indicado; galpão inexistente retorna 404.
+- `GET /api/v1/products?warehouseId=UUID` e `GET /api/v1/orders?warehouseId=UUID`: listagens restritas ao galpão.
+- Sem `warehouseId`, as três consultas continuam usando o Galpão 1 para compatibilidade.
+- `POST /api/v1/orders` aceita `warehouseId` opcional. Produtos de outro galpão são rejeitados com 422.
+- O cálculo recebe somente `orderId` e resolve o galpão no servidor. Consultas de distância entre galpões e transferências de produto por atualização cadastral são rejeitadas com 422.
+
 Contratos implementados na integração SmartPick. IDs de negócio nas URLs são UUID; códigos visíveis ficam em `code`/`sku`. Quantidades são inteiros; distâncias, coordenadas e pesos são números JSON (metros e kg). Datas são ISO 8601. PostgreSQL é a fonte oficial.
 
 ## API pública Fastify
@@ -72,7 +81,7 @@ Resposta:
 }
 ```
 
-`strategy` aceita `nearest_neighbor` ou `input_order` (referência convencional). O contrato interno admite omitir `endNodeId`, mas a API pública sempre fornece a única EXIT ativa. Nós e paradas são únicos; arestas dirigidas devem ter extremos existentes, peso finito positivo e pares únicos. A API valida novamente origem/destino, arestas, distância somada, cobertura dos produtos e ordem das paradas antes de salvar.
+`strategy` aceita `nearest_neighbor` ou `input_order` (referência convencional). O contrato interno admite omitir `endNodeId`, mas o cálculo de pedidos sempre fornece a única EXIT ativa. Nós e paradas são únicos; arestas dirigidas devem ter extremos existentes, peso finito positivo e pares únicos. A API valida novamente origem/destino, arestas, distância somada, cobertura dos produtos e ordem das paradas antes de salvar.
 
 O cálculo reutiliza `WarehouseGraph` e `dijkstra` do repositório. Não acrescenta arestas reversas. Vizinho Mais Próximo é uma heurística: pode ser pior que a referência ou alcançar um beco sem saída em grafo dirigido. Não é uma busca exaustiva nem uma garantia de ótimo global.
 
@@ -95,3 +104,11 @@ No motor, payload inválido retorna 422/`INVALID_ROUTE_REQUEST`; caminho não en
 ## Compatibilidade
 
 O antigo `POST /api/v1/products` do FastAPI e seu armazenamento JSON foram preservados, pois já faziam parte do repositório. São transitórios, não são consumidos pela interface e não sincronizam com PostgreSQL. O cadastro oficial desta integração está no Fastify. Não migrar dados JSON ou localStorage automaticamente, pois seus identificadores e posições não obedecem necessariamente ao modelo vigente.
+
+## Consulta de distância na planta
+
+`POST /api/v1/warehouse/distance` recebe `{ "fromNodeId": "UUID", "toNodeId": "UUID" }`. Ambos devem identificar pontos ativos. Retorna `{ "fromNodeId": "UUID", "toNodeId": "UUID", "pathNodeIds": ["UUID"], "distanceMeters": 7, "distanceUnit": "m" }`. Origem igual ao destino retorna zero. Caminho impossível retorna 422.
+
+O Node usa o contrato interno existente com uma parada no destino e um marcador de correlação interno (`distance-query`). Esse marcador não é um produto persistido. Não há escrita de pedido, rota ou coleta, e nenhum algoritmo é executado no navegador.
+
+Rotas novas também retornam `conventionalPathNodeIds`, lista persistida de nós da referência convencional. É nula em registros anteriores à migração ou quando não há percurso convencional viável.

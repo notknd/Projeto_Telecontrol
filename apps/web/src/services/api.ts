@@ -1,4 +1,6 @@
+export interface WarehouseOption { id: string; code: string; name: string; isActive: boolean }
 export interface WarehouseNode {
+  warehouseId?: string;
   id: string;
   code: string;
   type: string;
@@ -41,6 +43,7 @@ export interface Route {
   status: string;
   totalDistanceMeters: number;
   conventionalDistanceMeters: number | null;
+  conventionalPathNodeIds: string[] | null;
   calculatedAt: string;
   algorithm: string;
   steps: { warehouseNodeId: string; sequence: number }[];
@@ -65,6 +68,7 @@ export interface Collection {
   }[];
 }
 export interface Order {
+  warehouseId?: string;
   id: string;
   code: string;
   status: string;
@@ -100,9 +104,16 @@ export async function request<T>(
   return data as T;
 }
 export const api = {
-  products: () => request<Product[]>("/products"),
-  orders: () => request<Order[]>("/orders"),
-  warehouse: () => request<Warehouse>("/warehouse"),
+  warehouses: () => request<WarehouseOption[]>('/warehouses'),
+  products: (warehouseId?: string) => request<Product[]>("/products" + (warehouseId ? `?warehouseId=${encodeURIComponent(warehouseId)}` : '')),
+  orders: (warehouseId?: string) => request<Order[]>("/orders" + (warehouseId ? `?warehouseId=${encodeURIComponent(warehouseId)}` : '')),
+  distance: (fromNodeId: string, toNodeId: string) =>
+    request<{ pathNodeIds: string[]; distanceMeters: number }>(
+      "/warehouse/distance",
+      "POST",
+      { fromNodeId, toNodeId },
+    ),
+  warehouse: (warehouseId?: string) => request<Warehouse>("/warehouse" + (warehouseId ? `?warehouseId=${encodeURIComponent(warehouseId)}` : '')),
   saveProduct: (body: unknown, id?: string) =>
     request(id ? `/products/${id}` : "/products", id ? "PUT" : "POST", body),
   createOrder: (body: unknown) => request<Order>("/orders", "POST", body),

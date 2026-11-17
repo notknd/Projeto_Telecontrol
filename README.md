@@ -1,5 +1,11 @@
 # SmartPick — Projeto Telecontrol
 
+## Interface atual — primeira entrega de Leonardo (10/11/2026)
+
+A entrada padrão agora apresenta somente dashboard, consulta/seleção de pedidos, mapa 2D e visualização da rota (issues #25–#28). Execução e confirmação da coleta ficam para a segunda entrega. Veja [escopo, dependências e verificações](docs/FIRST_DELIVERY.md).
+
+`npm --prefix apps/web run test:e2e` valida esse recorte com respostas REST simuladas e servidor temporário próprio. O código da integração completa foi preservado, mas as instruções de coleta/histórico abaixo descrevem essa versão anterior e não as ações disponíveis na interface inicial atual.
+
 Aplicação local para otimizar rotas de coleta em armazéns: **Vue 3 + TypeScript → Fastify/Prisma → PostgreSQL e FastAPI**.
 
 ## Integração do HTML SmartPick

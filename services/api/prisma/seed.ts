@@ -1,4 +1,5 @@
 import { PrismaClient, WarehouseNodeType } from '@prisma/client';
+import { seedWarehouses } from './warehouses.js';
 
 const prisma = new PrismaClient();
 
@@ -39,6 +40,14 @@ const orders = [
   { code: 'DEMO-SHORT', items: [{ sku: 'SP-BOX-01', quantity: 1 }] },
   { code: 'DEMO-MULTI-STOP', items: [{ sku: 'SP-BOX-01', quantity: 2 }, { sku: 'SP-LAMP-01', quantity: 1 }, { sku: 'SP-MUG-01', quantity: 3 }] },
   { code: 'DEMO-CONVENTIONAL', items: [{ sku: 'SP-MUG-01', quantity: 1 }, { sku: 'SP-BOX-01', quantity: 1 }, { sku: 'SP-LAMP-01', quantity: 1 }] },
+  { code: 'PED-004', items: [{ sku: 'SP-LAMP-01', quantity: 2 }] },
+  { code: 'PED-005', items: [{ sku: 'SP-MUG-01', quantity: 4 }] },
+  { code: 'PED-006', items: [{ sku: 'SP-BOX-01', quantity: 3 }, { sku: 'SP-LAMP-01', quantity: 1 }] },
+  { code: 'PED-007', items: [{ sku: 'SP-LAMP-01', quantity: 2 }, { sku: 'SP-MUG-01', quantity: 2 }] },
+  { code: 'PED-008', items: [{ sku: 'SP-BOX-01', quantity: 2 }, { sku: 'SP-MUG-01', quantity: 3 }] },
+  { code: 'PED-009', items: [{ sku: 'SP-MUG-01', quantity: 1 }, { sku: 'SP-LAMP-01', quantity: 1 }, { sku: 'SP-BOX-01', quantity: 1 }] },
+  { code: 'PED-010', items: [{ sku: 'SP-BOX-01', quantity: 4 }] },
+  { code: 'PED-011', items: [{ sku: 'SP-LAMP-01', quantity: 1 }, { sku: 'SP-BOX-01', quantity: 2 }, { sku: 'SP-MUG-01', quantity: 2 }] },
 ] as const;
 
 async function seed() {
@@ -105,7 +114,8 @@ async function seed() {
     }
   }
 
-  console.info('Seed concluída: 7 nós, 12 arestas, 3 produtos e 3 pedidos de demonstração.');
+  await seedWarehouses(prisma);
+  console.info('Dados disponíveis: 3 galpões, 12 posições de estoque por galpão.');
 }
 
 seed()

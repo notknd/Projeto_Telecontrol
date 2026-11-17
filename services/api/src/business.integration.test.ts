@@ -34,6 +34,47 @@ test(
         (n: { code: string }) => n.code === "STORAGE-A-01",
       );
       assert.equal(typeof node.x, "number");
+      const beforeCounts = [
+        await db.order.count(),
+        await db.route.count(),
+        await db.collection.count(),
+      ];
+      const entry = layout.nodes.find(
+        (n: { type: string }) => n.type === "ENTRY",
+      );
+      const distance = await call("POST", "/warehouse/distance", {
+        fromNodeId: entry.id,
+        toNodeId: node.id,
+      });
+      assert.equal(distance.distanceMeters, 7);
+      assert.equal(distance.pathNodeIds[0], entry.id);
+      assert.equal(distance.pathNodeIds.at(-1), node.id);
+      const same = await call("POST", "/warehouse/distance", {
+        fromNodeId: node.id,
+        toNodeId: node.id,
+      });
+      assert.equal(same.distanceMeters, 0);
+      await call(
+        "POST",
+        "/warehouse/distance",
+        { fromNodeId: entry.id, toNodeId: randomUUID() },
+        422,
+      );
+      await call(
+        "POST",
+        "/warehouse/distance",
+        { fromNodeId: "invalid", toNodeId: node.id },
+        400,
+      );
+      assert.deepEqual(
+        [
+          await db.order.count(),
+          await db.route.count(),
+          await db.collection.count(),
+        ],
+        beforeCounts,
+      );
+
       const draft = {
         sku: `TEST-${tag}`,
         name: "Produto de teste integrado",
@@ -91,6 +132,14 @@ test(
       });
       assert.equal(first.route.totalDistanceMeters, 26);
       assert.equal(first.route.conventionalDistanceMeters, 26);
+      assert.ok(first.route.conventionalPathNodeIds.length > 1);
+      const persistedRoute = await db.route.findUniqueOrThrow({
+        where: { id: first.route.id },
+      });
+      assert.deepEqual(
+        persistedRoute.conventionalPathNodeIds,
+        first.route.conventionalPathNodeIds,
+      );
       const second = await call("POST", "/routes/calculate", {
         orderId: order.id,
       });

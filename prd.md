@@ -826,7 +826,7 @@ Vantagens:
 
 O Cloudflare Tunnel permite conectar um servidor à rede da Cloudflare sem precisar expor diretamente uma porta de entrada do servidor à internet.
 
-Documentação oficial: [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/?utm_source=chatgpt.com)
+Documentação oficial: [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/)
 
 **Esta é a opção que recomendo para a primeira implantação**, caso vocês queiram manter o Compose e o FastAPI exatamente como foram projetados.
 
@@ -856,7 +856,7 @@ Backend compatível com a plataforma
 
 &nbsp;
 
-Documentação oficial: [Cloudflare Workers](https://developers.cloudflare.com/workers/?utm_source=chatgpt.com)
+Documentação oficial: [Cloudflare Workers](https://developers.cloudflare.com/workers/)
 
 Essa alternativa pode ser útil caso vocês queiram adotar uma arquitetura mais gerenciada futuramente, mas exige decisões adicionais sobre hospedagem, banco de dados e comunicação entre serviços.
 

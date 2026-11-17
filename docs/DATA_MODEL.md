@@ -8,6 +8,8 @@ Confirmações são cumulativas e não podem retroceder; cancelar preserva quant
 
 Este documento define as entidades persistentes e suas regras antes do schema Prisma e da primeira migração. Ele atende à issue #4 e usa o [modelo do armazém](WAREHOUSE_MODEL.md) como dependência.
 
+A revisão visual adiciona, pela migração `20261108010000_conventional_path`, o campo opcional `Route.conventionalPathNodeIds` (JSON de IDs ordenados). Isso conserva o percurso convencional para exibição histórica; registros existentes permanecem nulos.
+
 ## Convenções gerais
 
 - Todas as entidades usam `id` UUID, `createdAt` e `updatedAt` quando aplicável.

@@ -20,6 +20,9 @@ function fail(message: string, status = 409): never {
   throw new BusinessError(status, "INVALID_OPERATION", message);
 }
 const uuid = { type: "string", format: "uuid" };
+const defaultWarehouseId = '10000000-0000-4000-8000-000000000001';
+const warehouseQuery = { type: 'object', additionalProperties: false, properties: { warehouseId: uuid } };
+type WarehouseQuery = { warehouseId?: string };
 const text = (maxLength: number) => ({
   type: "string",
   minLength: 1,
@@ -87,16 +90,18 @@ const getOrder = async (db: DB, id: string) => {
     throw new BusinessError(404, "NOT_FOUND", "Pedido não encontrado.");
   return order;
 };
-async function warehouse(db: DB) {
+async function warehouse(db: DB, warehouseId = defaultWarehouseId) {
+  const selected = await db.warehouse.findFirst({ where: { id: warehouseId, isActive: true } });
+  if (!selected) throw new BusinessError(404, 'NOT_FOUND', 'Galpão não encontrado.');
   const nodes = await db.warehouseNode.findMany({
-    where: { isActive: true },
+    where: { isActive: true, warehouseId },
     orderBy: { code: "asc" },
   });
   const edges = await db.warehouseEdge.findMany({
     where: {
       isActive: true,
-      fromNode: { isActive: true },
-      toNode: { isActive: true },
+      fromNode: { isActive: true, warehouseId },
+      toNode: { isActive: true, warehouseId },
     },
     orderBy: { id: "asc" },
   });
@@ -106,7 +111,7 @@ async function routeInput(db: DB, id: string) {
   const order = await getOrder(db, id);
   if (!["PENDING", "ROUTED"].includes(order.status))
     fail("Este pedido não pode receber ou iniciar uma rota.");
-  const layout = await warehouse(db);
+  const layout = await warehouse(db, order.warehouseId);
   const entries = layout.nodes.filter((n) => n.type === "ENTRY");
   const exits = layout.nodes.filter((n) => n.type === "EXIT");
   if (entries.length !== 1 || exits.length !== 1)
@@ -116,6 +121,7 @@ async function routeInput(db: DB, id: string) {
     const p = item.product;
     if (
       !p.isActive ||
+      p.warehouseNode.warehouseId !== order.warehouseId ||
       !p.warehouseNode.isActive ||
       p.warehouseNode.type !== "STORAGE" ||
       p.stockQuantity < item.requestedQuantity
@@ -177,9 +183,64 @@ export function registerBusiness(
   db: PrismaClient,
   engine: EngineClient,
 ) {
-  server.get("/api/v1/warehouse", () => warehouse(db));
-  server.get("/api/v1/products", () =>
+  server.get('/api/v1/warehouses', () => db.warehouse.findMany({ where: { isActive: true }, orderBy: { code: 'asc' } }));
+  server.get<{ Querystring: WarehouseQuery }>("/api/v1/warehouse", { schema: { querystring: warehouseQuery } }, req => warehouse(db, req.query.warehouseId));
+  server.post<{ Body: { fromNodeId: string; toNodeId: string } }>(
+    "/api/v1/warehouse/distance",
+    {
+      schema: {
+        body: {
+          type: "object",
+          additionalProperties: false,
+          required: ["fromNodeId", "toNodeId"],
+          properties: { fromNodeId: uuid, toNodeId: uuid },
+        },
+      },
+    },
+    async (req) => {
+      const { fromNodeId, toNodeId } = req.body;
+      const origin = await db.warehouseNode.findUnique({ where: { id: fromNodeId } });
+      if (!origin) fail('Selecione dois pontos ativos do mesmo galpão.', 422);
+      const layout = await warehouse(db, origin.warehouseId);
+      if (
+        !layout.nodes.some((n) => n.id === fromNodeId) ||
+        !layout.nodes.some((n) => n.id === toNodeId)
+      )
+        fail("Selecione dois pontos ativos do armazém.", 422);
+      const input: EngineRouteRequest = {
+        warehouse: {
+          nodes: layout.nodes.map((n) => ({
+            id: n.id,
+            x: Number(n.x),
+            y: Number(n.y),
+          })),
+          edges: layout.edges.map((e) => ({
+            from: e.fromNodeId,
+            to: e.toNodeId,
+            distance: Number(e.distanceMeters),
+          })),
+        },
+        startNodeId: fromNodeId,
+        endNodeId: toNodeId,
+        // Internal correlation marker required by the existing engine contract; no product or order is created.
+        stops: [{ id: toNodeId, productIds: ["distance-query"] }],
+        strategy: "input_order",
+      };
+      if (!isEngineRouteRequest(input))
+        fail("Grafo inválido para consulta.", 422);
+      const result = await engine.calculateRoute(input);
+      return {
+        fromNodeId,
+        toNodeId,
+        pathNodeIds: result.pathNodeIds,
+        distanceMeters: result.totalDistance,
+        distanceUnit: "m",
+      };
+    },
+  );
+  server.get<{ Querystring: WarehouseQuery }>("/api/v1/products", { schema: { querystring: warehouseQuery } }, req =>
     db.product.findMany({
+      where: { warehouseNode: { warehouseId: req.query.warehouseId ?? defaultWarehouseId } },
       include: { warehouseNode: true },
       orderBy: { sku: "asc" },
     }),
@@ -207,6 +268,10 @@ export function registerBusiness(
     async (req) =>
       atomic(db, async (tx) => {
         await validPosition(tx, req.body.warehouseNodeId);
+        const previous = await tx.product.findUnique({ where: { id: req.params.id }, include: { warehouseNode: true } });
+        const destination = await tx.warehouseNode.findUnique({ where: { id: req.body.warehouseNodeId } });
+        if (previous && destination && previous.warehouseNode.warehouseId !== destination.warehouseId)
+          fail('Não é possível transferir produtos entre galpões por esta operação.', 422);
         const active = await tx.orderItem.count({
           where: { productId: req.params.id, order: { status: "COLLECTING" } },
         });
@@ -237,8 +302,9 @@ export function registerBusiness(
         });
       }),
   );
-  server.get("/api/v1/orders", () =>
+  server.get<{ Querystring: WarehouseQuery }>("/api/v1/orders", { schema: { querystring: warehouseQuery } }, req =>
     db.order.findMany({
+      where: { warehouseId: req.query.warehouseId ?? defaultWarehouseId },
       include: orderInclude,
       orderBy: { createdAt: "desc" },
     }),
@@ -251,6 +317,7 @@ export function registerBusiness(
   server.post<{
     Body: {
       code: string;
+      warehouseId?: string;
       items: { productId: string; requestedQuantity: number }[];
     };
   }>(
@@ -263,6 +330,7 @@ export function registerBusiness(
           required: ["code", "items"],
           properties: {
             code: text(50),
+            warehouseId: uuid,
             items: {
               type: "array",
               minItems: 1,
@@ -284,6 +352,8 @@ export function registerBusiness(
     async (req, reply) => {
       const result = await atomic(db, async (tx) => {
         const merged = new Map<string, number>();
+        const warehouseId = req.body.warehouseId ?? defaultWarehouseId;
+        await warehouse(tx, warehouseId);
         for (const i of req.body.items)
           merged.set(
             i.productId,
@@ -291,10 +361,11 @@ export function registerBusiness(
           );
         const items = [];
         for (const [productId, requestedQuantity] of merged) {
-          const p = await tx.product.findUnique({ where: { id: productId } });
+          const p = await tx.product.findUnique({ where: { id: productId }, include: { warehouseNode: true } });
           if (!p || !p.isActive || requestedQuantity > p.stockQuantity)
             fail("Produto indisponível ou quantidade acima do estoque.", 422);
           await validPosition(tx, p.warehouseNodeId);
+          if (p.warehouseNode.warehouseId !== warehouseId) fail('Os produtos devem pertencer ao galpão do pedido.', 422);
           items.push({
             productId,
             requestedQuantity,
@@ -304,7 +375,7 @@ export function registerBusiness(
           });
         }
         return tx.order.create({
-          data: { code: req.body.code.trim(), items: { create: items } },
+          data: { code: req.body.code.trim(), warehouseId, items: { create: items } },
           include: orderInclude,
         });
       });
@@ -331,13 +402,14 @@ export function registerBusiness(
       // The same graph and stop set are used for the conventional baseline.
       // Some directed graphs permit the heuristic order but not the conventional order.
       let conventional: number | null = null;
+      let conventionalPath: string[] | undefined;
       try {
-        conventional = (
-          await engine.calculateRoute({
-            ...before.input,
-            strategy: "input_order",
-          })
-        ).totalDistance;
+        const reference = await engine.calculateRoute({
+          ...before.input,
+          strategy: "input_order",
+        });
+        conventional = reference.totalDistance;
+        conventionalPath = reference.pathNodeIds;
       } catch (e) {
         if (!(e instanceof Error && "kind" in e && e.kind === "no_route_found"))
           throw e;
@@ -363,6 +435,7 @@ export function registerBusiness(
             algorithm: "dijkstra+nearest_neighbor",
             totalDistanceMeters: calculated.totalDistance,
             conventionalDistanceMeters: conventional,
+            conventionalPathNodeIds: conventionalPath,
             inputVersion: (previous._max.inputVersion ?? 0) + 1,
             inputFingerprint: current.fingerprint,
             steps: {

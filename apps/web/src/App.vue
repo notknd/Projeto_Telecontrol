@@ -1,4 +1,4 @@
 <script setup lang="ts">
-import SmartPickApp from './SmartPickApp.vue';
+import FirstDeliveryApp from './FirstDeliveryApp.vue';
 </script>
-<template><SmartPickApp /></template>
+<template><FirstDeliveryApp /></template>

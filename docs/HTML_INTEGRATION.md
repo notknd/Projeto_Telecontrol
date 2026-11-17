@@ -6,7 +6,7 @@ Data: 08/11/2026. Base: `main` em `f2128bb`. Branch de trabalho: `integration/sm
 
 As decisões consolidadas em `docs/DATA_MODEL.md` e `docs/WAREHOUSE_MODEL.md`, a implementação existente e os requisitos do PRD prevalecem sobre o protótipo HTML. A documentação antiga de progresso dizia que Dijkstra ainda não estava integrado; a árvore atual já o continha, por isso ele foi reutilizado. A branch `issue-22-route-calculation` (`c0862d7`) também foi inspecionada: cliente HTTP, contratos, erros e testes foram reaproveitados seletivamente, sem sobrescrever a base ou trazer um segundo Dijkstra.
 
-O HTML fornecido não foi incorporado como uma segunda aplicação ou iframe. Seu visual e fluxos compatíveis foram portados para Vue/TypeScript, com camada HTTP separada e componentes para mapa e diálogo. O arquivo original em Downloads não foi alterado.
+O HTML fornecido não foi incorporado como uma segunda aplicação ou iframe. Seu visual e fluxos compatíveis foram portados para Vue/TypeScript, com camada HTTP separada e componentes para mapa e ícones, com formulários laterais. O arquivo original em Downloads não foi alterado.
 
 ## Aproveitado, adaptado e removido
 
@@ -22,10 +22,23 @@ O HTML fornecido não foi incorporado como uma segunda aplicação ou iframe. Se
 | Login de teste, senhas/perfis locais e permissões via JavaScript | Removidos da interface integrada: não são autenticação do backend e não fazem parte do modelo do MVP. |
 | `localStorage` de produtos, pedidos, coletas e usuários; reset de demonstração no navegador | Removidos. A seed do repositório é a única massa de demonstração. |
 | Grafo fixo A–E do HTML; Dijkstra/A*/otimizações no navegador | Removidos. Grafo do banco e Dijkstra existente no Python são usados. A* permanece evolução futura conforme o PRD. |
-| Three.js, simulação 3D, laboratório de algoritmos, permissões e exportações locais | Não portados; não são necessários ao fluxo 2D especificado. |
+| Perspectiva, simulação e exportação | Perspectiva SVG do grafo real, simulação visual sem movimentar estoque e exportação CSV do histórico restauradas. Three.js não é necessário para essa projeção. |
+| Laboratório A*/2-opt e perfis fictícios | Não há algoritmos paralelos nem autorização simulada no navegador. São extensões distintas do MVP. |
 | Pausa/retomada fictícia da coleta | Não portada: o enum oficial não possui PAUSED. |
 
 O cadastro JSON temporário do motor foi **preservado**, por já existir no repositório, mas não é usado pela nova interface. Não há importação automática de localStorage/JSON para o banco oficial.
+
+## Revisão visual solicitada pelo usuário
+
+O CSS, a tipografia Inter/JetBrains Mono e os ícones do HTML original foram recuperados. Fontes são distribuídas localmente. A navegação, os cartões compactos, a carteira de pedidos, os formulários laterais e a prévia da planta seguem a composição do anexo. O arquivo original permanece intacto.
+
+Recursos recuperados: filtros por endereço e situação, localização de produtos, consulta de todos os produtos de uma posição, comparação em barras, camadas de rota otimizada/convencional, zoom, centralização, perspectiva, simulação, próxima parada, tempo decorrido, confirmação por Espaço, busca e exportação CSV do histórico. A exportação neutraliza prefixos de fórmulas nas células.
+
+A planta desenha os corredores e as posições realmente cadastrados: a seed oficial tem sete pontos e três posições de estoque, em vez dos cinquenta endereços fictícios do HTML. Setas indicam sentidos permitidos; números indicam paradas. A perspectiva é uma projeção visual, não um modelo físico 3D. Não foram reinseridos login de teste, permissões locais, reset do banco, pausa sem estado oficial ou estorno fictício.
+
+A consulta entre endereços usa `POST /api/v1/warehouse/distance`, coordenada pelo Node e calculada pelo motor Python existente, sem criar pedidos, rotas ou coletas. A migração incremental `20261108010000_conventional_path` guarda o percurso convencional em `Route.conventionalPathNodeIds`; rotas antigas continuam válidas, com campo nulo. Para pedidos ainda pendentes, recalcular disponibiliza essa camada. Histórico antigo não é reconstruído com dados atuais.
+
+Esta revisão é exclusivamente local: não foram criados novos commits nem enviados arquivos ao GitHub.
 
 ## Ajustes necessários na base
 

@@ -206,12 +206,12 @@ Explique o limite com precisão: nesta etapa estão prontos os serviços, o banc
 
 O teste manual completo do MVP, após os módulos existirem, deve cobrir: criar pedido → calcular rota → iniciar coleta → registrar produtos → concluir pedido → consultar histórico. No estado atual, a prova integrada cobre infraestrutura, migração e seed; CRUD público, rota e coleta ainda não existem em `main`.
 
-## Trabalho pelo app ChatGPT para PC
+## Desenvolvimento por issue
 
 1. Atualize a branch de integração: `git switch main` e `git pull origin main`.
 2. Crie sua branch a partir dela, por exemplo `feature/issue-15-dijkstra`.
-3. Abra uma conversa/tarefa para a issue e informe seu número e os arquivos envolvidos.
-4. Peça alterações restritas ao escopo da issue e revise o diff antes de commitar.
+3. Identifique os arquivos envolvidos e os critérios de aceite da issue.
+4. Implemente alterações restritas ao escopo da issue e revise o diff antes de commitar.
 5. Execute `.\scripts\test-local.ps1`, valide também `npm run db:validate` quando alterar o schema, envie sua branch e abra um PR para `main`.
 6. Use `Closes #NUMERO` somente quando o trabalho realmente cumprir os critérios de aceite.
 
