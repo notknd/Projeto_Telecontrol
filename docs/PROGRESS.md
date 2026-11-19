@@ -1,8 +1,8 @@
 # Acompanhamento do projeto — SmartPick
 
-**Atualizado em:** 10 de novembro de 2026
-**Branch de integração:** `main` (`95e8f89`)
-**Status geral:** infraestrutura, persistência, grafo, cálculo de rota e a integração API → motor estão disponíveis. O MVP ainda não possui a interface de seleção/exibição de rota nem o fluxo de coleta ponta a ponta.
+**Atualizado em:** 19 de novembro de 2026
+**Branch de integração:** `main` (base revisada: `94785f5`)
+**Status geral:** infraestrutura, persistência, grafo, cálculo de rota, APIs de produtos e pedidos e atualização/conclusão/histórico de coletas estão disponíveis na API. O MVP ainda não possui a interface de seleção/exibição de rota nem o fluxo de coleta ponta a ponta.
 
 ## Como este documento interpreta o progresso
 
@@ -18,6 +18,8 @@ Uma issue fechada no GitHub só é tratada como entrega integrada quando o commi
 | #6 — schema Prisma e primeira migração | Concluída | PR #55; schema, migração versionada e integridade de banco. |
 | #7 — seed idempotente | Concluída | PR #55; 7 nós, 12 arestas, 3 produtos e 3 pedidos. |
 | #8 e #15 — grafo executável e Dijkstra | Concluídas | PR #57; representação do grafo, Dijkstra e testes automatizados. |
+| #20 — API de produtos | Integrada em `main` | `GET /api/v1/products`, `GET /api/v1/products/:productId` e `POST /api/v1/products`, com persistência Prisma e validação da posição. |
+| #21 — API de pedidos | Integrada em `main` | `GET /api/v1/orders`, `GET /api/v1/orders/:orderId` e `POST /api/v1/orders`, com snapshots e validação de produtos/estoque. |
 | #22 — cálculo de rota de pedido persistido | Implementado em `main` | PR #61; `POST /api/v1/routes/calculate` consulta pedido, posições e grafo no Prisma e chama o motor. |
 | #49 — contrato API ↔ motor | Implementado em `main` | PRs #60 e #62; `docs/API.md`, contratos TypeScript e endpoint interno versionado. |
 | #50 — cliente resiliente do motor | Implementado em `main` | PR #59 inclui cliente, timeout, validação da resposta, mapeamento de erros e testes. |
@@ -31,8 +33,6 @@ Uma issue fechada no GitHub só é tratada como entrega integrada quando o commi
 
 | Issue | Branch/commit observado | Situação para o MVP |
 | --- | --- | --- |
-| #20 — API de produtos; apoio a #10 e #12 | `codex/issue-20-products-api` | Implementa `POST` e consultas de produtos na API Fastify usando Prisma, com vínculo a posição ativa, validações e testes. Aguardar revisão e merge. |
-| #21 — API de pedidos; apoio a #11 e #13 | `codex/issue-20-products-api` | Implementa criação, listagem e consulta detalhada de pedidos via Prisma, com snapshots de produto, validação de estoque e testes. Aguardar revisão e merge. |
 | #35 — cenários de pedidos para rota | `codex/issue-35-order-scenarios`, commit `f381735` | O teste original não está em `main`; revisar/reaplicar os cenários sobre a base atual. |
 
 ## O que funciona hoje
@@ -43,14 +43,14 @@ Uma issue fechada no GitHub só é tratada como entrega integrada quando o commi
 - `http://127.0.0.1:8000/health` e `/docs`: health check e documentação do motor FastAPI.
 - PostgreSQL local via Compose, com migração Prisma, massa de demonstração reproduzível e pedidos `DEMO-SHORT` e `DEMO-MULTI-STOP`.
 
-Ainda faltam CRUD público completo de produtos e pedidos integrado em `main`, seleção de pedido, mapa 2D, exibição da rota, execução da coleta, histórico e comparação de rotas. Assim, a demonstração atual comprova infraestrutura e cálculo via API, mas não um fluxo visual ponta a ponta.
+A API de produtos ainda não oferece atualização/remoção; a API de pedidos ainda não oferece atualização/cancelamento. O cálculo de rota apenas retorna o resultado e não persiste `Route`, `RouteStep` ou `RouteStop`, nem inicia uma coleta. Também faltam seleção de pedido, mapa 2D, exibição da rota, início/consulta de coletas ativas e fluxo visual ponta a ponta.
 
 ## Próxima sequência técnica recomendada
 
-1. Revisar e integrar a API de produtos (#20; também cobre parte de #10 e #12).
-2. Validar localmente os pedidos seedados no endpoint de rota e fechar/reconciliar as issues #22, #49 e #50 com as PRs já integradas.
-3. Revisar e integrar a API de pedidos (#21; também cobre parte de #11 e #13).
-4. Construir seleção de pedido, mapa 2D e exibição da rota no frontend (#26 a #28).
-5. Reaplicar os cenários #35 e concluir teste ponta a ponta, coleta, histórico e comparação de rotas.
+1. Persistir as rotas calculadas e definir a transição de pedido para `ROUTED`.
+2. Implementar início e consulta de coletas ativas, vinculando-as a uma rota persistida.
+3. Construir seleção de pedido, mapa 2D e exibição da rota no frontend (#26 a #28).
+4. Completar operações de atualização/cancelamento de produtos e pedidos conforme escopo do MVP.
+5. Reaplicar os cenários #35 e concluir testes ponta a ponta, histórico e comparação de rotas.
 
 Consulte `DEVELOPMENT.md` para o procedimento de atualização e teste local e `IMPLEMENTATION_PLAN.md` para a ordem de implementação.
