@@ -140,7 +140,6 @@ Resposta de sucesso (`200`):
 Os contratos públicos de negócio sob `/api/v1` são responsabilidade exclusiva da API Fastify. O motor FastAPI expõe somente `GET /health` e `POST /internal/v1/routes/calculate`; não mantém cadastro próprio de produtos nem acessa PostgreSQL.
 
 ## Atualização da coleta
-## Atualização da coleta
 
 `PATCH /api/v1/collections/:collectionId/items/:itemId`
 
