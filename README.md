@@ -4,7 +4,7 @@ Aplicação para otimizar rotas de coleta de produtos em armazéns. A arquitetur
 
 ## Estado atual
 
-A fundação dos serviços, a modelagem do domínio, a primeira persistência e a execução local integrada estão disponíveis em `main`. O backend possui schema Prisma, migração PostgreSQL versionada e seed de demonstração validada; CRUD público, cálculo de rotas e telas de coleta continuam nas próximas etapas.
+A fundação dos serviços, a modelagem do domínio, a persistência PostgreSQL, as APIs de produtos e pedidos e o cálculo de rotas estão disponíveis em `main`. O fluxo visual de seleção de pedido, exibição de rota e coleta ponta a ponta continua em desenvolvimento.
 
 ## Ambiente da equipe
 
