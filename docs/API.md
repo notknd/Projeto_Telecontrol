@@ -137,7 +137,7 @@ Resposta de sucesso (`200`):
 {"status":"ok","service":"engine"}
 ```
 
-Os demais contratos públicos de negócio, sob `/api/v1`, permanecem separados do contrato interno de cálculo.
+Os contratos públicos de negócio sob `/api/v1` são responsabilidade exclusiva da API Fastify. O motor FastAPI expõe somente `GET /health` e `POST /internal/v1/routes/calculate`; não mantém cadastro próprio de produtos nem acessa PostgreSQL.
 
 ## Atualização da coleta
 ## Atualização da coleta
@@ -230,7 +230,7 @@ Exemplo de requisição:
 }
 ```
 
-O SKU é convertido para maiúsculas e não pode ser repetido. `GET /api/v1/products`
+O SKU é convertido para maiúsculas e não pode ser repetido. `weightKg` deve ser um número finito maior que zero; `stockQuantity` deve ser um inteiro não negativo. `GET /api/v1/products`
 lista os produtos ordenados por SKU, e `GET /api/v1/products/:productId` consulta
 um produto específico.
 
