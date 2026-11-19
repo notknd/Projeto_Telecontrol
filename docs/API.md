@@ -139,9 +139,7 @@ Resposta de sucesso (`200`):
 
 Os demais contratos públicos de negócio, sob `/api/v1`, permanecem separados do contrato interno de cálculo.
 
-<<<<<<< HEAD
-## Produtos
-=======
+## Atualização da coleta
 ## Atualização da coleta
 
 `PATCH /api/v1/collections/:collectionId/items/:itemId`
@@ -213,9 +211,6 @@ Resposta `200`:
   }]
 }
 ```
-
-## Cadastro temporário de produtos no motor
->>>>>>> 7acda9fe5d77a014aa3d936c20980a049a969b47
 
 `POST /api/v1/products`
 
