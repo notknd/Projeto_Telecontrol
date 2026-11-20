@@ -36,10 +36,11 @@ Resposta de sucesso (`200`):
 {
   "orderId":"UUID_DO_PEDIDO",
   "route":{
-    "status":"success",
+    "id":"UUID_DA_ROTA",
+    "status":"CALCULATED",
     "pathNodeIds":["UUID_ENTRADA","UUID_POSICAO","UUID_SAIDA"],
     "stops":[{"nodeId":"UUID_POSICAO","sequence":1,"productIds":["UUID_PRODUTO"]}],
-    "totalDistance":9,
+    "totalDistanceMeters":9,
     "distanceUnit":"m",
     "algorithm":{"shortestPath":"dijkstra","visitOrder":"nearest_neighbor"}
   }
@@ -57,7 +58,7 @@ Resposta de sucesso (`200`):
 | Timeout na chamada ou na leitura da resposta do motor | 504 | `ENGINE_TIMEOUT` |
 | Resposta HTTP ou JSON incompatível com o contrato | 502 | `ENGINE_INVALID_RESPONSE` |
 
-O endpoint não altera o status do pedido nem persiste a rota. Essas transições serão tratadas pelo fluxo de coleta e persistência.
+O endpoint persiste `Route`, passos, paradas e itens da parada na mesma transação e altera o pedido de `PENDING` para `ROUTED`. Um pedido que já não está pendente não pode receber outro cálculo nesta versão. A rota pode ser consultada por `GET /api/v1/routes/:routeId`.
 
 ## Cálculo interno de rota
 
@@ -137,12 +138,25 @@ Resposta de sucesso (`200`):
 {"status":"ok","service":"engine"}
 ```
 
-Os demais contratos públicos de negócio, sob `/api/v1`, permanecem separados do contrato interno de cálculo.
+Os contratos públicos de negócio sob `/api/v1` são responsabilidade exclusiva da API Fastify. O motor FastAPI expõe somente `GET /health` e `POST /internal/v1/routes/calculate`; não mantém cadastro próprio de produtos nem acessa PostgreSQL.
 
-<<<<<<< HEAD
-## Produtos
-=======
-## Atualização da coleta
+## Coletas
+
+### Início e consulta de coleta
+
+`POST /api/v1/collections`
+
+Inicia uma coleta a partir de um pedido em `ROUTED` e de sua rota em `CALCULATED`. A API cria os itens da coleta com base nos itens do pedido e, na mesma transação, muda o pedido para `COLLECTING` e a rota para `IN_USE`.
+
+```json
+{"orderId":"UUID_DO_PEDIDO","routeId":"UUID_DA_ROTA"}
+```
+
+`GET /api/v1/collections/:collectionId` devolve a coleta, seus itens e quantidades confirmadas.
+
+Erros: `400 INVALID_COLLECTION_REQUEST`; `404 ORDER_NOT_FOUND` ou `ROUTE_NOT_FOUND`; `409 COLLECTION_ALREADY_IN_PROGRESS`; `422 COLLECTION_NOT_STARTABLE`.
+
+### Atualização da coleta
 
 `PATCH /api/v1/collections/:collectionId/items/:itemId`
 
@@ -171,7 +185,7 @@ Resposta `200`:
 
 Erros: `400 INVALID_COLLECTION_REQUEST` para IDs ou corpo inválidos; `404 COLLECTION_ITEM_NOT_FOUND` para item inexistente; `422 COLLECTION_NOT_IN_PROGRESS`, `INVALID_COLLECTION_QUANTITY`, `INSUFFICIENT_STOCK` ou `COLLECTION_CONFIGURATION_INVALID` para violações de estado, quantidade, estoque ou vínculo de domínio.
 
-## Conclusão do pedido
+### Conclusão do pedido
 
 `POST /api/v1/collections/:collectionId/complete`
 
@@ -191,7 +205,7 @@ Resposta `200`:
 
 Erros: `400 INVALID_COLLECTION_REQUEST` para identificador inválido; `404 COLLECTION_NOT_FOUND`; `422 COLLECTION_NOT_IN_PROGRESS`, `COLLECTION_NOT_READY` ou `COLLECTION_CONFIGURATION_INVALID` quando a coleta não pode ser concluída.
 
-## Histórico de coletas
+### Histórico de coletas
 
 `GET /api/v1/collections/history`
 
@@ -214,8 +228,7 @@ Resposta `200`:
 }
 ```
 
-## Cadastro temporário de produtos no motor
->>>>>>> 7acda9fe5d77a014aa3d936c20980a049a969b47
+## Produtos
 
 `POST /api/v1/products`
 
@@ -235,7 +248,7 @@ Exemplo de requisição:
 }
 ```
 
-O SKU é convertido para maiúsculas e não pode ser repetido. `GET /api/v1/products`
+O SKU é convertido para maiúsculas e não pode ser repetido. `weightKg` deve ser um número finito maior que zero; `stockQuantity` deve ser um inteiro não negativo. `GET /api/v1/products`
 lista os produtos ordenados por SKU, e `GET /api/v1/products/:productId` consulta
 um produto específico.
 
@@ -244,7 +257,7 @@ Erros:
 - `400 INVALID_PRODUCT_REQUEST`: campos inválidos, incluindo quantidade negativa;
 - `404 WAREHOUSE_NODE_NOT_FOUND` ou `PRODUCT_NOT_FOUND`;
 - `409 PRODUCT_SKU_ALREADY_EXISTS`;
-- `422 WAREHOUSE_NODE_INACTIVE`.
+- `422 WAREHOUSE_NODE_INACTIVE` ou `WAREHOUSE_NODE_NOT_STORAGE`.
 
 ## Pedidos
 
@@ -262,3 +275,5 @@ Erros:
 `GET /api/v1/orders` lista pedidos, e `GET /api/v1/orders/:orderId` devolve os dados e os itens de um pedido.
 
 Erros: `400 INVALID_ORDER_REQUEST`, `404 ORDER_NOT_FOUND` ou `PRODUCT_NOT_FOUND`, `409 ORDER_CODE_ALREADY_EXISTS` e `422 PRODUCT_NOT_ORDERABLE`.
+
+No MVP, a criação do pedido apenas verifica o estoque disponível; não há reserva de estoque. O saldo é decrementado na confirmação do item coletado, em transação com a coleta. Reservas concorrentes ficam fora do escopo atual.

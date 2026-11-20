@@ -46,6 +46,12 @@ if (-not $SkipInstall) {
   Invoke-Setup $engineDirectory { & .\.venv\Scripts\python.exe -m pip install --upgrade pip; & .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt }
 }
 
+try {
+  Invoke-Setup (Join-Path $projectRoot 'services/api') { npm.cmd run db:generate; npm.cmd run db:deploy; npm.cmd run db:seed }
+} catch {
+  throw "Não foi possível preparar o PostgreSQL local. Inicie um PostgreSQL compatível com DATABASE_URL em .env, revise as credenciais e execute novamente. Detalhe: $($_.Exception.Message)"
+}
+
 Start-ServiceTerminal 'SmartPick API — localhost:3000' (Join-Path $projectRoot 'services/api') 'npm.cmd run dev'
 Start-ServiceTerminal 'SmartPick Engine — localhost:8000' (Join-Path $projectRoot 'services/engine') '.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000'
 Start-ServiceTerminal 'SmartPick Web — localhost:5173' (Join-Path $projectRoot 'apps/web') 'npm.cmd run dev'

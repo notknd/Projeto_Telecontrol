@@ -83,7 +83,7 @@ São definidos em detalhe no [modelo do armazém](WAREHOUSE_MODEL.md). Os campos
 | `id` | UUID. |
 | `sku` | Obrigatório e único; identificador de negócio. |
 | `name` | Obrigatório. |
-| `category` e `weightKg` | Categoria opcional e peso não negativo em quilogramas; preservam os atributos já previstos para o cadastro de produto. |
+| `category` e `weightKg` | Categoria opcional e peso positivo em quilogramas; preservam os atributos já previstos para o cadastro de produto. |
 | `stockQuantity` | Inteiro maior ou igual a zero. |
 | `warehouseNodeId` | Obrigatório para produto disponível à coleta; referencia um `WarehouseNode` do tipo `STORAGE` ativo. |
 | `isActive` | Produto desativado não entra em pedidos novos, mas permanece no histórico. |

@@ -204,7 +204,7 @@ Invoke-RestMethod http://127.0.0.1:8000/health
 
 Explique o limite com precisão: nesta etapa estão prontos os serviços, o banco migrado e os dados de demonstração. O fluxo completo de pedido, cálculo de rota e coleta visual ainda depende das próximas issues e não é uma funcionalidade concluída.
 
-O teste manual completo do MVP, após os módulos existirem, deve cobrir: criar pedido → calcular rota → iniciar coleta → registrar produtos → concluir pedido → consultar histórico. No estado atual, a prova integrada cobre infraestrutura, migração e seed; CRUD público, rota e coleta ainda não existem em `main`.
+O teste manual completo da API cobre: criar produto → criar pedido → calcular rota → iniciar coleta → registrar produtos → concluir pedido → consultar histórico. A prova integrada automatizada ainda valida infraestrutura, migração e seed; a validação ponta a ponta dos novos endpoints deve acompanhar a evolução do frontend.
 
 ## Desenvolvimento por issue
 
