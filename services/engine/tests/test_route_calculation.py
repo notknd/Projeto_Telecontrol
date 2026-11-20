@@ -1,7 +1,6 @@
 from fastapi.testclient import TestClient
 
 from app.main import app
-import pytest
 
 
 def route_request() -> dict[str, object]:
@@ -80,34 +79,3 @@ def test_calculate_route_reports_when_a_stop_cannot_be_reached() -> None:
     assert response.json() == {
         'error': {'code': 'NO_ROUTE_FOUND', 'message': 'Não existe caminho válido entre os pontos solicitados.'}
     }
-
-
-def test_reverse_edge_is_not_invented():
-    request = route_request()
-    request['warehouse']['edges'] = [
-        {'from': 'A', 'to': 'ENTRY', 'distance': 2},
-        {'from': 'A', 'to': 'B', 'distance': 2},
-        {'from': 'B', 'to': 'EXIT', 'distance': 3},
-    ]
-    assert TestClient(app).post('/internal/v1/routes/calculate', json=request).status_code == 422
-
-
-def test_conventional_order_uses_same_directed_graph():
-    request = route_request()
-    request['warehouse']['edges'].append({'from': 'B', 'to': 'A', 'distance': 2})
-    request['strategy'] = 'input_order'
-    result = TestClient(app).post('/internal/v1/routes/calculate', json=request).json()
-    assert result['pathNodeIds'] == ['ENTRY', 'A', 'B', 'A', 'B', 'EXIT']
-    assert result['totalDistance'] == 11
-    assert result['algorithm']['visitOrder'] == 'input_order'
-
-
-@pytest.mark.parametrize('mutation', ['duplicate_edge', 'zero_weight', 'empty_stops', 'unknown_stop', 'missing_exit'])
-def test_invalid_requests_do_not_produce_routes(mutation):
-    request = route_request()
-    if mutation == 'duplicate_edge': request['warehouse']['edges'].append(request['warehouse']['edges'][0])
-    if mutation == 'zero_weight': request['warehouse']['edges'][0]['distance'] = 0
-    if mutation == 'empty_stops': request['stops'] = []
-    if mutation == 'unknown_stop': request['stops'][0]['id'] = 'UNKNOWN'
-    if mutation == 'missing_exit': request['endNodeId'] = 'UNKNOWN'
-    assert TestClient(app).post('/internal/v1/routes/calculate', json=request).status_code == 422

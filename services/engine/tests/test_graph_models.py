@@ -18,7 +18,7 @@ class WarehouseMapTests(unittest.TestCase):
             WarehouseMap([WarehouseNode("entrance"), WarehouseNode("entrance")], [])
 
     def test_rejects_edges_with_unknown_endpoints(self) -> None:
-        with self.assertRaisesRegex(ValueError, "desconhecido"):
+        with self.assertRaisesRegex(ValueError, r"nó\(s\) desconhecido\(s\)"):
             WarehouseMap([WarehouseNode("entrance")], [WarehouseEdge("entrance", "x", 1)])
 
     def test_rejects_negative_or_non_finite_distances(self) -> None:

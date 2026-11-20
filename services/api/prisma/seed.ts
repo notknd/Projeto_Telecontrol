@@ -1,5 +1,4 @@
 import { PrismaClient, WarehouseNodeType } from '@prisma/client';
-import { seedWarehouses } from './warehouses.js';
 
 const prisma = new PrismaClient();
 
@@ -40,14 +39,6 @@ const orders = [
   { code: 'DEMO-SHORT', items: [{ sku: 'SP-BOX-01', quantity: 1 }] },
   { code: 'DEMO-MULTI-STOP', items: [{ sku: 'SP-BOX-01', quantity: 2 }, { sku: 'SP-LAMP-01', quantity: 1 }, { sku: 'SP-MUG-01', quantity: 3 }] },
   { code: 'DEMO-CONVENTIONAL', items: [{ sku: 'SP-MUG-01', quantity: 1 }, { sku: 'SP-BOX-01', quantity: 1 }, { sku: 'SP-LAMP-01', quantity: 1 }] },
-  { code: 'PED-004', items: [{ sku: 'SP-LAMP-01', quantity: 2 }] },
-  { code: 'PED-005', items: [{ sku: 'SP-MUG-01', quantity: 4 }] },
-  { code: 'PED-006', items: [{ sku: 'SP-BOX-01', quantity: 3 }, { sku: 'SP-LAMP-01', quantity: 1 }] },
-  { code: 'PED-007', items: [{ sku: 'SP-LAMP-01', quantity: 2 }, { sku: 'SP-MUG-01', quantity: 2 }] },
-  { code: 'PED-008', items: [{ sku: 'SP-BOX-01', quantity: 2 }, { sku: 'SP-MUG-01', quantity: 3 }] },
-  { code: 'PED-009', items: [{ sku: 'SP-MUG-01', quantity: 1 }, { sku: 'SP-LAMP-01', quantity: 1 }, { sku: 'SP-BOX-01', quantity: 1 }] },
-  { code: 'PED-010', items: [{ sku: 'SP-BOX-01', quantity: 4 }] },
-  { code: 'PED-011', items: [{ sku: 'SP-LAMP-01', quantity: 1 }, { sku: 'SP-BOX-01', quantity: 2 }, { sku: 'SP-MUG-01', quantity: 2 }] },
 ] as const;
 
 async function seed() {
@@ -57,7 +48,7 @@ async function seed() {
     const persistedNode = await prisma.warehouseNode.upsert({
       where: { code: node.code },
       create: node,
-      update: {},
+      update: { type: node.type, x: node.x, y: node.y, label: node.label, isActive: true },
     });
     nodeByCode.set(node.code, persistedNode);
   }
@@ -71,7 +62,7 @@ async function seed() {
       await prisma.warehouseEdge.upsert({
         where: { fromNodeId_toNodeId: { fromNodeId: edgeFromNodeId, toNodeId: edgeToNodeId } },
         create: { fromNodeId: edgeFromNodeId, toNodeId: edgeToNodeId, distanceMeters },
-        update: {},
+        update: { distanceMeters, isActive: true },
       });
     }
   }
@@ -84,7 +75,7 @@ async function seed() {
     const persistedProduct = await prisma.product.upsert({
       where: { sku: product.sku },
       create: { ...productData, warehouseNodeId },
-      update: {},
+      update: { ...productData, warehouseNodeId, isActive: true },
     });
     productBySku.set(product.sku, persistedProduct);
   }
@@ -93,10 +84,10 @@ async function seed() {
     const persistedOrder = await prisma.order.upsert({
       where: { code: order.code },
       create: { code: order.code },
-      update: {},
+      update: { status: 'PENDING', completedAt: null, cancelledAt: null },
     });
 
-    for (const [sequence, item] of order.items.entries()) {
+    for (const item of order.items) {
       const product = productBySku.get(item.sku);
       if (!product) throw new Error(`Produto ausente na seed: ${item.sku}`);
       await prisma.orderItem.upsert({
@@ -105,17 +96,20 @@ async function seed() {
           orderId: persistedOrder.id,
           productId: product.id,
           requestedQuantity: item.quantity,
-          sequence,
           productSkuSnapshot: product.sku,
           productNameSnapshot: product.name,
         },
-        update: {},
+        update: {
+          requestedQuantity: item.quantity,
+          collectedQuantity: 0,
+          productSkuSnapshot: product.sku,
+          productNameSnapshot: product.name,
+        },
       });
     }
   }
 
-  await seedWarehouses(prisma);
-  console.info('Dados disponíveis: 3 galpões, 12 posições de estoque por galpão.');
+  console.info('Seed concluída: 7 nós, 12 arestas, 3 produtos e 3 pedidos de demonstração.');
 }
 
 seed()

@@ -1,10 +1,12 @@
 services:
   db:
     image: postgres:17-alpine
+    ports:
+      - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-smartpick}
       POSTGRES_USER: ${POSTGRES_USER:-smartpick}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-for-local-development}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-senhasegura}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
@@ -16,6 +18,8 @@ services:
   engine:
     build:
       context: ./services/engine
+    ports:
+      - "${ENGINE_PORT:-8000}:8000"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 10s
@@ -30,7 +34,7 @@ services:
       HOST: 0.0.0.0
       # Docker uses the internal service DNS; the native .env keeps 127.0.0.1.
       ENGINE_URL: http://engine:8000
-      DATABASE_URL: postgresql://${POSTGRES_USER:-smartpick}:${POSTGRES_PASSWORD:-change-me-for-local-development}@db:5432/${POSTGRES_DB:-smartpick}?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-smartpick}:${POSTGRES_PASSWORD:-senhasegura}@db:5432/${POSTGRES_DB:-smartpick}?schema=public
     command: >
       sh -c "npx prisma migrate deploy --schema prisma/schema.prisma &&
       npx prisma db seed --schema prisma/schema.prisma && npm run start"
@@ -40,7 +44,7 @@ services:
       engine:
         condition: service_healthy
     ports:
-      - "127.0.0.1:${API_PORT:-3000}:3000"
+      - "${API_PORT:-3000}:3000"
     healthcheck:
       # O Fastify escuta em IPv4; evitar `localhost` impede que o wget tente ::1 no contêiner.
       test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3000/health"]
@@ -57,7 +61,8 @@ services:
     environment:
       API_PROXY_TARGET: http://api:3000
     ports:
-      - "127.0.0.1:${WEB_PORT:-5173}:5173"
+      - "${WEB_PORT:-5173}:5173"
 
 volumes:
   postgres_data:
+    name: smartpick_frontend_integracao_data
