@@ -14,7 +14,7 @@ export interface ProductRecord {
 }
 
 export interface ProductDataSource {
-  findWarehouseNode(nodeId: string): Promise<{ id: string; isActive: boolean } | null>;
+  findWarehouseNode(nodeId: string): Promise<{ id: string; isActive: boolean; type: string } | null>;
   findProductBySku(sku: string): Promise<ProductRecord | null>;
   findProduct(productId: string): Promise<ProductRecord | null>;
   listProducts(): Promise<ProductRecord[]>;
@@ -31,7 +31,7 @@ function toProductRecord(product: {
 export function createPrismaProductDataSource(prisma: PrismaClient = new PrismaClient()): ProductDataSource {
   return {
     findWarehouseNode: (nodeId) => prisma.warehouseNode.findUnique({
-      where: { id: nodeId }, select: { id: true, isActive: true },
+      where: { id: nodeId }, select: { id: true, isActive: true, type: true },
     }),
     findProductBySku: async (sku) => {
       const product = await prisma.product.findUnique({ where: { sku } });

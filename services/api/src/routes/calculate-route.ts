@@ -1,9 +1,9 @@
 import type { FastifyInstance } from 'fastify';
-import type { EngineRouteRequest, EngineRouteResponse } from '../engine/contracts.js';
-import type { RouteDataSource, WarehouseForRoute } from './route-data-source.js';
+import type { EngineRouteRequest } from '../engine/contracts.js';
+import type { PersistedRoute, RouteDataSource, WarehouseForRoute } from './route-data-source.js';
 
 export class RouteCalculationError extends Error {
-  constructor(readonly statusCode: 400 | 404 | 422, readonly code: string, message: string) {
+  constructor(readonly statusCode: 400 | 404 | 409 | 422, readonly code: string, message: string) {
     super(message);
     this.name = 'RouteCalculationError';
   }
@@ -22,6 +22,13 @@ function parseOrderId(body: unknown): string {
   return orderId;
 }
 
+function parseRouteId(value: unknown): string {
+  if (typeof value !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) {
+    throw new RouteCalculationError(400, 'INVALID_ROUTE_REQUEST', 'A requisição de cálculo é inválida.');
+  }
+  return value;
+}
+
 function finiteNumber(value: unknown): number | null {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
@@ -30,6 +37,9 @@ function finiteNumber(value: unknown): number | null {
 function warehouseRequest(warehouse: WarehouseForRoute, order: Awaited<ReturnType<RouteDataSource['findOrder']>>): EngineRouteRequest {
   if (!order || order.items.length === 0) {
     throw new RouteCalculationError(422, 'ORDER_NOT_ROUTABLE', 'O pedido não possui itens disponíveis para coleta.');
+  }
+  if (order.status !== 'PENDING') {
+    throw new RouteCalculationError(422, 'ORDER_NOT_ROUTABLE', 'O pedido não está disponível para cálculo de rota.');
   }
   if (order.items.some((item) => item.requestedQuantity <= 0 || !item.product.isActive || !item.product.warehouseNode.isActive)) {
     throw new RouteCalculationError(422, 'ORDER_NOT_ROUTABLE', 'O pedido possui itens sem posição ativa no armazém.');
@@ -81,15 +91,21 @@ function warehouseRequest(warehouse: WarehouseForRoute, order: Awaited<ReturnTyp
 export function registerCalculateRoute(server: FastifyInstance, routeDataSource: RouteDataSource): void {
   server.post<{ Body: unknown }>(
     '/api/v1/routes/calculate',
-    async (request): Promise<{ orderId: string; route: EngineRouteResponse }> => {
+    async (request): Promise<{ orderId: string; route: PersistedRoute }> => {
       const orderId = parseOrderId(request.body);
       const order = await routeDataSource.findOrder(orderId);
       if (!order) {
         throw new RouteCalculationError(404, 'ORDER_NOT_FOUND', 'O pedido solicitado não foi encontrado.');
       }
       const engineRequest = warehouseRequest(await routeDataSource.findActiveWarehouse(), order);
-      const route = await server.engineClient.calculateRoute(engineRequest);
-      return { orderId, route };
+      const engineRoute = await server.engineClient.calculateRoute(engineRequest);
+      return { orderId, route: await routeDataSource.persistRoute(order, engineRoute) };
     },
   );
+
+  server.get<{ Params: { routeId: string } }>('/api/v1/routes/:routeId', async (request) => {
+    const route = await routeDataSource.findRoute(parseRouteId(request.params.routeId));
+    if (!route) throw new RouteCalculationError(404, 'ROUTE_NOT_FOUND', 'A rota solicitada não foi encontrada.');
+    return { route };
+  });
 }

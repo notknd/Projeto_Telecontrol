@@ -17,7 +17,7 @@ function product(overrides: Partial<ProductRecord> = {}): ProductRecord {
 
 function productsDataSource(overrides: Partial<ProductDataSource> = {}): ProductDataSource {
   return {
-    async findWarehouseNode() { return { id: nodeId, isActive: true }; },
+    async findWarehouseNode() { return { id: nodeId, isActive: true, type: 'STORAGE' }; },
     async findProductBySku() { return null; },
     async findProduct(requestedId) { return requestedId === productId ? product() : null; },
     async listProducts() { return [product()]; },
@@ -55,7 +55,7 @@ test('POST /api/v1/products rejects a duplicate SKU and inactive positions', asy
   assert.equal(duplicate.json().error.code, 'PRODUCT_SKU_ALREADY_EXISTS');
   await duplicateServer.close();
 
-  const inactiveServer = buildServer(undefined, undefined, productsDataSource({ async findWarehouseNode() { return { id: nodeId, isActive: false }; } }));
+  const inactiveServer = buildServer(undefined, undefined, productsDataSource({ async findWarehouseNode() { return { id: nodeId, isActive: false, type: 'STORAGE' }; } }));
   const inactive = await inactiveServer.inject({
     method: 'POST', url: '/api/v1/products',
     payload: { sku: 'SP-NEW-01', name: 'Produto', weightKg: 1, stockQuantity: 0, warehouseNodeId: nodeId },
@@ -63,6 +63,15 @@ test('POST /api/v1/products rejects a duplicate SKU and inactive positions', asy
   assert.equal(inactive.statusCode, 422);
   assert.equal(inactive.json().error.code, 'WAREHOUSE_NODE_INACTIVE');
   await inactiveServer.close();
+
+  const invalidNodeServer = buildServer(undefined, undefined, productsDataSource({ async findWarehouseNode() { return { id: nodeId, isActive: true, type: 'AISLE' }; } }));
+  const invalidNode = await invalidNodeServer.inject({
+    method: 'POST', url: '/api/v1/products',
+    payload: { sku: 'SP-NEW-02', name: 'Produto', weightKg: 1, stockQuantity: 0, warehouseNodeId: nodeId },
+  });
+  assert.equal(invalidNode.statusCode, 422);
+  assert.equal(invalidNode.json().error.code, 'WAREHOUSE_NODE_NOT_STORAGE');
+  await invalidNodeServer.close();
 });
 
 test('product routes validate input and expose list and detail queries', async () => {

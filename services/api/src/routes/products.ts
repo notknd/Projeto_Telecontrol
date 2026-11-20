@@ -66,6 +66,7 @@ export function registerProductRoutes(server: FastifyInstance, dataSource: Produ
     ]);
     if (!node) throw new ProductRequestError(404, 'WAREHOUSE_NODE_NOT_FOUND', 'A posição informada não foi encontrada.');
     if (!node.isActive) throw new ProductRequestError(422, 'WAREHOUSE_NODE_INACTIVE', 'A posição informada está inativa.');
+    if (node.type !== 'STORAGE') throw new ProductRequestError(422, 'WAREHOUSE_NODE_NOT_STORAGE', 'A posição informada não é de armazenamento.');
     if (existingProduct) throw new ProductRequestError(409, 'PRODUCT_SKU_ALREADY_EXISTS', 'Já existe um produto com este SKU.');
     const product = await dataSource.createProduct(input);
     return reply.status(201).send({ product: productResponse(product) });

@@ -35,7 +35,7 @@ export function buildServer(
 async function start() {
   const server = buildServer();
   const host = process.env.HOST ?? '127.0.0.1';
-  const port = Number.parseInt(process.env.PORT ?? '3000', 10);
+  const port = Number.parseInt(process.env.API_PORT ?? process.env.PORT ?? '3000', 10);
 
   await server.listen({ host, port });
 }

@@ -33,10 +33,29 @@ export interface CollectionHistoryEntry {
   collectedQuantity: number;
 }
 
+export interface CollectionDetail {
+  id: string;
+  orderId: string;
+  routeId: string;
+  status: 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  startedAt: Date;
+  completedAt: Date | null;
+  items: Array<{ id: string; orderItemId: string; requestedQuantity: number; collectedQuantity: number; collectedAt: Date | null }>;
+}
+
 export interface CollectionDataSource {
   updateItem(collectionId: string, itemId: string, collectedQuantity: number): Promise<CollectionUpdateResult>;
   complete(collectionId: string): Promise<CollectionCompletionResult>;
   listCompleted(): Promise<CollectionHistoryEntry[]>;
+  start(orderId: string, routeId: string): Promise<CollectionDetail>;
+  find(collectionId: string): Promise<CollectionDetail | null>;
+}
+
+function toCollectionDetail(collection: {
+  id: string; orderId: string; routeId: string; status: 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'; startedAt: Date; completedAt: Date | null;
+  items: Array<{ id: string; orderItemId: string; requestedQuantity: number; collectedQuantity: number; collectedAt: Date | null }>;
+}): CollectionDetail {
+  return { ...collection, items: collection.items };
 }
 
 async function completeCollection(transaction: Prisma.TransactionClient, collectionId: string): Promise<CollectionCompletionResult> {
@@ -182,6 +201,38 @@ export function createPrismaCollectionDataSource(prisma: PrismaClient = new Pris
         requestedQuantity: collection.items.reduce((total, item) => total + item.requestedQuantity, 0),
         collectedQuantity: collection.items.reduce((total, item) => total + item.collectedQuantity, 0),
       }));
+    },
+    async start(orderId, routeId) {
+      return prisma.$transaction(async (transaction) => {
+        const [order, route, activeCollection] = await Promise.all([
+          transaction.order.findUnique({ where: { id: orderId }, include: { items: true } }),
+          transaction.route.findUnique({ where: { id: routeId } }),
+          transaction.collection.findFirst({ where: { orderId, status: 'IN_PROGRESS' }, select: { id: true } }),
+        ]);
+        if (!order) throw new RouteCalculationError(404, 'ORDER_NOT_FOUND', 'O pedido solicitado não foi encontrado.');
+        if (!route || route.orderId !== orderId) throw new RouteCalculationError(404, 'ROUTE_NOT_FOUND', 'A rota solicitada não foi encontrada para este pedido.');
+        if (order.status !== 'ROUTED' || route.status !== 'CALCULATED') {
+          throw new RouteCalculationError(422, 'COLLECTION_NOT_STARTABLE', 'O pedido e a rota não estão disponíveis para iniciar a coleta.');
+        }
+        if (activeCollection) throw new RouteCalculationError(409, 'COLLECTION_ALREADY_IN_PROGRESS', 'Já existe uma coleta em andamento para este pedido.');
+        if (order.items.length === 0) throw new RouteCalculationError(422, 'COLLECTION_NOT_STARTABLE', 'O pedido não possui itens para coleta.');
+        const collection = await transaction.collection.create({
+          data: {
+            orderId, routeId,
+            items: { create: order.items.map((item) => ({ orderItemId: item.id, requestedQuantity: item.requestedQuantity })) },
+          },
+          include: { items: { orderBy: { createdAt: 'asc' } } },
+        });
+        await transaction.route.update({ where: { id: routeId }, data: { status: 'IN_USE' } });
+        await transaction.order.update({ where: { id: orderId }, data: { status: 'COLLECTING' } });
+        return toCollectionDetail(collection);
+      });
+    },
+    async find(collectionId) {
+      const collection = await prisma.collection.findUnique({
+        where: { id: collectionId }, include: { items: { orderBy: { createdAt: 'asc' } } },
+      });
+      return collection ? toCollectionDetail(collection) : null;
     },
   };
 }
