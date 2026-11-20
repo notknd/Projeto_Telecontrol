@@ -11,4 +11,4 @@ coverage/
 htmlcov/
 test-results/
 services/engine/data/
-
+.vscode/
