@@ -41,8 +41,40 @@ function dataSource(): CollectionDataSource {
         collectedQuantity: 2,
       }];
     },
+    async start(receivedOrderId, receivedRouteId) {
+      assert.equal(receivedOrderId, '33333333-3333-4333-8333-333333333333');
+      assert.equal(receivedRouteId, '44444444-4444-4444-8444-444444444444');
+      return {
+        id: collectionId, orderId: receivedOrderId, routeId: receivedRouteId, status: 'IN_PROGRESS',
+        startedAt: new Date('2026-11-15T11:00:00.000Z'), completedAt: null,
+        items: [{ id: itemId, orderItemId: '55555555-5555-4555-8555-555555555555', requestedQuantity: 2, collectedQuantity: 0, collectedAt: null }],
+      };
+    },
+    async find(receivedCollectionId) {
+      if (receivedCollectionId !== collectionId) return null;
+      return {
+        id: collectionId, orderId: '33333333-3333-4333-8333-333333333333', routeId: '44444444-4444-4444-8444-444444444444', status: 'IN_PROGRESS',
+        startedAt: new Date('2026-11-15T11:00:00.000Z'), completedAt: null,
+        items: [{ id: itemId, orderItemId: '55555555-5555-4555-8555-555555555555', requestedQuantity: 2, collectedQuantity: 0, collectedAt: null }],
+      };
+    },
   };
 }
+
+test('POST /api/v1/collections starts a collection and GET returns it', async () => {
+  const server = buildServer(undefined, undefined, undefined, undefined, dataSource());
+  const response = await server.inject({
+    method: 'POST', url: '/api/v1/collections',
+    payload: { orderId: '33333333-3333-4333-8333-333333333333', routeId: '44444444-4444-4444-8444-444444444444' },
+  });
+  assert.equal(response.statusCode, 201);
+  assert.equal(response.json().collection.status, 'IN_PROGRESS');
+
+  const detail = await server.inject({ method: 'GET', url: `/api/v1/collections/${collectionId}` });
+  assert.equal(detail.statusCode, 200);
+  assert.equal(detail.json().collection.items.length, 1);
+  await server.close();
+});
 
 test('PATCH /api/v1/collections/:id/items/:itemId records collected quantity', async () => {
   const server = buildServer(undefined, undefined, undefined, undefined, dataSource());

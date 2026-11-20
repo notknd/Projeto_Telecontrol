@@ -2,7 +2,7 @@
 
 **Atualizado em:** 19 de novembro de 2026
 **Branch de integração:** `main` (base revisada: `94785f5`)
-**Status geral:** infraestrutura, persistência, grafo, cálculo de rota, APIs de produtos e pedidos e atualização/conclusão/histórico de coletas estão disponíveis na API. O MVP ainda não possui a interface de seleção/exibição de rota nem o fluxo de coleta ponta a ponta.
+**Status geral:** infraestrutura, persistência, grafo, cálculo e persistência de rota, APIs de produtos e pedidos e o fluxo de coleta pela API estão disponíveis. O MVP ainda não possui a interface visual de seleção/exibição de rota e coleta ponta a ponta.
 
 ## Como este documento interpreta o progresso
 
@@ -20,7 +20,7 @@ Uma issue fechada no GitHub só é tratada como entrega integrada quando o commi
 | #8 e #15 — grafo executável e Dijkstra | Concluídas | PR #57; representação do grafo, Dijkstra e testes automatizados. |
 | #20 — API de produtos | Integrada em `main` | `GET /api/v1/products`, `GET /api/v1/products/:productId` e `POST /api/v1/products`, com persistência Prisma e validação da posição. |
 | #21 — API de pedidos | Integrada em `main` | `GET /api/v1/orders`, `GET /api/v1/orders/:orderId` e `POST /api/v1/orders`, com snapshots e validação de produtos/estoque. |
-| #22 — cálculo de rota de pedido persistido | Implementado em `main` | PR #61; `POST /api/v1/routes/calculate` consulta pedido, posições e grafo no Prisma e chama o motor. |
+| #22 — cálculo de rota de pedido persistido | Implementado em `main` | `POST /api/v1/routes/calculate` consulta pedido, posições e grafo no Prisma, chama o motor e persiste a rota. |
 | #49 — contrato API ↔ motor | Implementado em `main` | PRs #60 e #62; `docs/API.md`, contratos TypeScript e endpoint interno versionado. |
 | #50 — cliente resiliente do motor | Implementado em `main` | PR #59 inclui cliente, timeout, validação da resposta, mapeamento de erros e testes. |
 | Execução local e demonstração técnica | Concluída | Compose aplica migração/seed e `scripts/test-compose.ps1` valida o conjunto. |
@@ -39,17 +39,16 @@ Uma issue fechada no GitHub só é tratada como entrega integrada quando o commi
 
 - `http://127.0.0.1:5173`: frontend Vue servido localmente; ainda é a fundação visual.
 - `http://127.0.0.1:3000/health`: health check da API Fastify.
-- `POST http://127.0.0.1:3000/api/v1/routes/calculate`: calcula a rota de um pedido persistido pelo seu `orderId`.
+- `POST http://127.0.0.1:3000/api/v1/routes/calculate`: calcula e persiste a rota de um pedido pendente; `GET /api/v1/routes/:routeId` a consulta.
+- `POST http://127.0.0.1:3000/api/v1/collections`: inicia a coleta de uma rota calculada; atualização, conclusão e histórico também estão disponíveis sob `/api/v1/collections`.
 - `http://127.0.0.1:8000/health` e `/docs`: health check e documentação do motor FastAPI.
 - PostgreSQL local via Compose, com migração Prisma, massa de demonstração reproduzível e pedidos `DEMO-SHORT` e `DEMO-MULTI-STOP`.
 
-A API de produtos ainda não oferece atualização/remoção; a API de pedidos ainda não oferece atualização/cancelamento. O cálculo de rota apenas retorna o resultado e não persiste `Route`, `RouteStep` ou `RouteStop`, nem inicia uma coleta. Também faltam seleção de pedido, mapa 2D, exibição da rota, início/consulta de coletas ativas e fluxo visual ponta a ponta.
+A API de produtos ainda não oferece atualização/remoção e a API de pedidos ainda não oferece atualização/cancelamento. Também faltam seleção de pedido, mapa 2D, exibição da rota e o fluxo visual ponta a ponta.
 
 ## Próxima sequência técnica recomendada
 
-1. Persistir as rotas calculadas e definir a transição de pedido para `ROUTED`.
-2. Implementar início e consulta de coletas ativas, vinculando-as a uma rota persistida.
-3. Construir seleção de pedido, mapa 2D e exibição da rota no frontend (#26 a #28).
+1. Construir seleção de pedido, mapa 2D e exibição da rota no frontend (#26 a #28).
 4. Completar operações de atualização/cancelamento de produtos e pedidos conforme escopo do MVP.
 5. Reaplicar os cenários #35 e concluir testes ponta a ponta, histórico e comparação de rotas.
 

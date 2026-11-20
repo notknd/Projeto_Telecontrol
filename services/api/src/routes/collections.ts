@@ -19,8 +19,37 @@ function parseCollectedQuantity(body: unknown): number {
   return (body as { collectedQuantity: number }).collectedQuantity;
 }
 
+function parseStartCollection(body: unknown): { orderId: string; routeId: string } {
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+    throw new RouteCalculationError(400, 'INVALID_COLLECTION_REQUEST', 'A requisição de coleta é inválida.');
+  }
+  const input = body as { orderId?: unknown; routeId?: unknown };
+  return { orderId: parseUuid(input.orderId, 'orderId'), routeId: parseUuid(input.routeId, 'routeId') };
+}
+
+function collectionResponse(collection: Awaited<ReturnType<CollectionDataSource['find']>>) {
+  if (!collection) return null;
+  return {
+    ...collection,
+    startedAt: collection.startedAt.toISOString(),
+    completedAt: collection.completedAt?.toISOString() ?? null,
+    items: collection.items.map((item) => ({ ...item, collectedAt: item.collectedAt?.toISOString() ?? null })),
+  };
+}
+
 export function registerCollectionRoutes(server: FastifyInstance, dataSource: CollectionDataSource): void {
   server.get('/api/v1/collections/history', async () => ({ collections: await dataSource.listCompleted() }));
+
+  server.post<{ Body: unknown }>('/api/v1/collections', async (request, reply) => {
+    const { orderId, routeId } = parseStartCollection(request.body);
+    return reply.status(201).send({ collection: collectionResponse(await dataSource.start(orderId, routeId)) });
+  });
+
+  server.get<{ Params: { collectionId: string } }>('/api/v1/collections/:collectionId', async (request) => {
+    const collection = await dataSource.find(parseUuid(request.params.collectionId, 'collectionId'));
+    if (!collection) throw new RouteCalculationError(404, 'COLLECTION_NOT_FOUND', 'A coleta não foi encontrada.');
+    return { collection: collectionResponse(collection) };
+  });
 
   server.patch<{ Params: { collectionId: string; itemId: string }; Body: unknown }>(
     '/api/v1/collections/:collectionId/items/:itemId',

@@ -20,9 +20,10 @@ function routeDataSource(orderExists = true): RouteDataSource {
       if (!orderExists || orderId !== '11111111-1111-4111-8111-111111111111') return null;
       return {
         id: orderId,
+        status: 'PENDING',
         items: [
-          { productId: 'product-a', requestedQuantity: 1, product: { isActive: true, warehouseNodeId: 'storage-a', warehouseNode: { isActive: true } } },
-          { productId: 'product-b', requestedQuantity: 1, product: { isActive: true, warehouseNodeId: 'storage-b', warehouseNode: { isActive: true } } },
+          { id: 'order-item-a', productId: 'product-a', requestedQuantity: 1, product: { isActive: true, warehouseNodeId: 'storage-a', warehouseNode: { isActive: true } } },
+          { id: 'order-item-b', productId: 'product-b', requestedQuantity: 1, product: { isActive: true, warehouseNodeId: 'storage-b', warehouseNode: { isActive: true } } },
         ],
       };
     },
@@ -41,6 +42,15 @@ function routeDataSource(orderExists = true): RouteDataSource {
         ],
       };
     },
+    async persistRoute(order, route) {
+      return {
+        id: '33333333-3333-4333-8333-333333333333', orderId: order.id, status: 'CALCULATED',
+        algorithm: `${route.algorithm.shortestPath}+${route.algorithm.visitOrder}`,
+        totalDistanceMeters: route.totalDistance, distanceUnit: route.distanceUnit,
+        pathNodeIds: route.pathNodeIds, stops: route.stops,
+      };
+    },
+    async findRoute() { return null; },
   };
 }
 
@@ -91,7 +101,8 @@ test('POST /api/v1/routes/calculate loads the order and warehouse before calling
     ],
     strategy: 'nearest_neighbor',
   });
-  assert.equal(response.json().route.totalDistance, 3);
+  assert.equal(response.json().route.totalDistanceMeters, 3);
+  assert.equal(response.json().route.status, 'CALCULATED');
   await server.close();
 });
 
