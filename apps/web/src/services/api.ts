@@ -103,17 +103,24 @@ export async function request<T>(
     );
   return data as T;
 }
+async function list<T>(path: string, key: string): Promise<T[]> {
+  const result = await request<Record<string, T[]>>(path);
+  return result[key] ?? [];
+}
 export const api = {
-  warehouses: () => request<WarehouseOption[]>('/warehouses'),
-  products: (warehouseId?: string) => request<Product[]>("/products" + (warehouseId ? `?warehouseId=${encodeURIComponent(warehouseId)}` : '')),
-  orders: (warehouseId?: string) => request<Order[]>("/orders" + (warehouseId ? `?warehouseId=${encodeURIComponent(warehouseId)}` : '')),
+  warehouses: () => list<WarehouseOption>('/warehouses', 'warehouses'),
+  products: async (warehouseId?: string) => (await list<Omit<Product, 'warehouseNode'> & { warehouseNode?: WarehouseNode }>("/products" + (warehouseId ? `?warehouseId=${encodeURIComponent(warehouseId)}` : ''), 'products')).map((product) => ({
+    ...product,
+    warehouseNode: product.warehouseNode ?? { id: product.warehouseNodeId, code: product.warehouseNodeId, type: 'STORAGE', x: 0, y: 0, label: null, isActive: true },
+  })),
+  orders: async (warehouseId?: string) => (await list<Omit<Order, 'routes' | 'collections'> & { routes?: Route[]; collections?: Collection[] }>("/orders" + (warehouseId ? `?warehouseId=${encodeURIComponent(warehouseId)}` : ''), 'orders')).map((order) => ({ ...order, routes: order.routes ?? [], collections: order.collections ?? [] })),
   distance: (fromNodeId: string, toNodeId: string) =>
     request<{ pathNodeIds: string[]; distanceMeters: number }>(
       "/warehouse/distance",
       "POST",
       { fromNodeId, toNodeId },
     ),
-  warehouse: (warehouseId?: string) => request<Warehouse>("/warehouse" + (warehouseId ? `?warehouseId=${encodeURIComponent(warehouseId)}` : '')),
+  warehouse: async (warehouseId?: string) => (await request<{ warehouse: Warehouse }>("/warehouse" + (warehouseId ? `?warehouseId=${encodeURIComponent(warehouseId)}` : ''))).warehouse,
   saveProduct: (body: unknown, id?: string) =>
     request(id ? `/products/${id}` : "/products", id ? "PUT" : "POST", body),
   createOrder: (body: unknown) => request<Order>("/orders", "POST", body),

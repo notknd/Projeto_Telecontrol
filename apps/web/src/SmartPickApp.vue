@@ -122,14 +122,12 @@ function toggleTheme() {
   document.documentElement.dataset.theme = dark.value ? "dark" : "light";
 }
 async function refresh() {
-  const [p, o, w] = await Promise.all([
+  const [p, o] = await Promise.all([
     api.products(),
     api.orders(),
-    api.warehouse(),
   ]);
   products.value = p;
   orders.value = o;
-  warehouse.value = w;
   if (!selected.value)
     selectedId.value =
       o.find((x) => x.status === "COLLECTING")?.id ?? o[0]?.id ?? "";
@@ -538,15 +536,15 @@ onUnmounted(() => {
                       </td>
                       <td class="mono">
                         {{
-                          o.routes[0]
+                          o.routes?.[0]
                             ? number(o.routes[0].totalDistanceMeters) + " m"
                             : "—"
                         }}
                       </td>
                       <td class="mono">
                         {{
-                          o.routes[0]?.conventionalDistanceMeters != null
-                            ? number(o.routes[0].conventionalDistanceMeters) +
+                          o.routes?.[0]?.conventionalDistanceMeters != null
+                            ? number(o.routes![0].conventionalDistanceMeters!) +
                               " m"
                             : "—"
                         }}
