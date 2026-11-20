@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  isEngineRouteResponse,
   matchesEngineRouteRequest,
   type EngineRouteRequest,
   type EngineRouteResponse,
@@ -59,10 +60,7 @@ test("validates the path, distance, complete stop coverage and stop order", () =
     false,
   );
   assert.equal(
-    matchesEngineRouteRequest(
-      { ...valid, stops: [valid.stops[1], valid.stops[0]] },
-      request,
-    ),
+    isEngineRouteResponse({ ...valid, stops: [valid.stops[1], valid.stops[0]] }),
     false,
   );
   assert.equal(
