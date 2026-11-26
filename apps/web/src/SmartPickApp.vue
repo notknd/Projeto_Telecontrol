@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
-import { api, type Product, type Order, type Warehouse } from "./services/api";
+import { api, type Product, type Order, type Route, type Warehouse } from "./services/api";
 import WarehouseMap from "./components/WarehouseMap.vue";
 import WmsIcon from "./components/WmsIcon.vue";
 const tabs = [
@@ -127,7 +127,23 @@ async function refresh() {
     api.orders(),
   ]);
   products.value = p;
-  orders.value = o;
+  orders.value = o.map((order) => ({
+    ...order,
+    items: order.items.map((item) => ({
+      ...item,
+      product: p.find((product) => product.id === item.productId) ?? item.product ?? ({
+        id: item.productId,
+        sku: item.productSkuSnapshot,
+        name: item.productNameSnapshot,
+        category: null,
+        weightKg: 0,
+        stockQuantity: 0,
+        warehouseNodeId: "",
+        isActive: true,
+        warehouseNode: { id: "", code: "—", type: "STORAGE", x: 0, y: 0, label: null, isActive: true },
+      } as Product),
+    })),
+  }));
   if (!selected.value)
     selectedId.value =
       o.find((x) => x.status === "COLLECTING")?.id ?? o[0]?.id ?? "";
@@ -168,13 +184,8 @@ function editProduct(p?: Product) {
 }
 const saveProduct = () =>
   perform(async () => {
-    await api.saveProduct(
-      {
-        ...productDraft.value,
-        category: productDraft.value.category.trim() || undefined,
-      },
-      editingId.value || undefined,
-    );
+    if (editingId.value) throw new Error("A edição de produtos ainda não está disponível na API.");
+    throw new Error("O cadastro exige uma posição do armazém exposta pela API.");
     productDraft.value = blankProduct();
     editingId.value = "";
     await refresh();
@@ -201,34 +212,64 @@ async function createOrder() {
 }
 const calculate = () =>
   perform(async () => {
-    await api.calculate(selectedId.value);
-    await refresh();
+    const result = await api.calculate(selectedId.value);
+    const current = orders.value.find((order) => order.id === selectedId.value);
+    if (current) {
+      const raw = result.route as any;
+      const normalized = {
+        ...raw,
+        status: "CALCULATED",
+        steps: (raw.pathNodeIds ?? []).map((warehouseNodeId: string, index: number) => ({ warehouseNodeId, sequence: index + 1 })),
+        stops: (raw.stops ?? []).map((stop: any) => {
+          const node = products.value.find((product) => product.warehouseNodeId === stop.nodeId)?.warehouseNode ?? { id: stop.nodeId, code: stop.nodeId, type: "STORAGE", x: 0, y: 0, label: null, isActive: true };
+          return { warehouseNodeId: stop.nodeId, sequence: stop.sequence, warehouseNode: node, items: (stop.productIds ?? []).map((productId: string) => ({ orderItemId: current.items.find((item) => item.productId === productId)?.id ?? productId })) };
+        }),
+      } as Route;
+      current.routes = [normalized, ...current.routes.filter((route) => route.id !== normalized.id)];
+      current.status = "ROUTED";
+    }
   }, "Rota calculada e salva.");
 const start = () =>
   perform(async () => {
-    await api.start(selectedId.value);
-    await refresh();
+    const routeId = route.value?.id;
+    if (!routeId) throw new Error("Calcule a rota antes de iniciar a coleta.");
+    const result = await api.start(selectedId.value, routeId);
+    const current = orders.value.find((order) => order.id === selectedId.value);
+    if (current) {
+      current.collections = [result, ...current.collections.filter((collection) => collection.id !== result.id)];
+      current.status = "COLLECTING";
+      const currentRoute = current.routes.find((candidate) => candidate.id === routeId);
+      if (currentRoute) currentRoute.status = "IN_USE";
+    }
     page.value = "active";
   }, "Coleta iniciada.");
 const confirmItem = (id: string) =>
   perform(async () => {
     const c = collection.value!;
     const i = c.items.find((i) => i.orderItemId === id)!;
-    await api.collect(c.id, i.id, i.requestedQuantity);
-    await refresh();
+    const result = await api.collect(c.id, i.id, i.requestedQuantity) as { item: { collectedQuantity: number; collectedAt?: string | null }; collectionStatus: string; orderStatus: string };
+    i.collectedQuantity = result.item.collectedQuantity;
+    if (result.item.collectedAt) (i as any).collectedAt = result.item.collectedAt;
+    const current = orders.value.find((order) => order.id === selectedId.value);
+    if (current) current.status = result.orderStatus;
   }, "Quantidade confirmada.");
 const finish = () =>
   perform(async () => {
-    await api.complete(collection.value!.id);
-    await refresh();
+    const result = await api.complete(collection.value!.id) as { collectionId: string; completedAt: string };
+    const current = orders.value.find((order) => order.id === selectedId.value);
+    if (current) {
+      current.status = "COMPLETED";
+      const activeCollection = current.collections.find((item) => item.id === result.collectionId);
+      if (activeCollection) { activeCollection.status = "COMPLETED"; activeCollection.completedAt = result.completedAt; }
+      const currentRoute = current.routes.find((item) => item.id === activeCollection?.routeId);
+      if (currentRoute) currentRoute.status = "COMPLETED";
+    }
     page.value = "history";
   }, "Coleta concluída e registrada no histórico.");
 const cancel = () =>
   perform(async () => {
-    await api.cancel(selectedId.value);
-    confirmation.value = false;
-    await refresh();
-  }, "Pedido cancelado. Quantidades já coletadas foram preservadas.");
+    throw new Error("Cancelamento ainda não faz parte do contrato da API.");
+  });
 const collapsed = ref(false),
   positionFilter = ref(""),
   focusNode = ref("");

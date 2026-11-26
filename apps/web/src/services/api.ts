@@ -108,29 +108,30 @@ async function list<T>(path: string, key: string): Promise<T[]> {
   return result[key] ?? [];
 }
 export const api = {
-  warehouses: () => list<WarehouseOption>('/warehouses', 'warehouses'),
+  warehouses: () => Promise.resolve<WarehouseOption[]>([]),
+  warehouse: async (_warehouseId?: string) => ({ nodes: [], edges: [] } as Warehouse),
   products: async (warehouseId?: string) => (await list<Omit<Product, 'warehouseNode'> & { warehouseNode?: WarehouseNode }>("/products" + (warehouseId ? `?warehouseId=${encodeURIComponent(warehouseId)}` : ''), 'products')).map((product) => ({
     ...product,
     warehouseNode: product.warehouseNode ?? { id: product.warehouseNodeId, code: product.warehouseNodeId, type: 'STORAGE', x: 0, y: 0, label: null, isActive: true },
   })),
+  distance: async (_fromNodeId: string, _toNodeId: string) => { throw new Error("A consulta de distância ainda não está disponível na API."); },
   orders: async (warehouseId?: string) => (await list<Omit<Order, 'routes' | 'collections'> & { routes?: Route[]; collections?: Collection[] }>("/orders" + (warehouseId ? `?warehouseId=${encodeURIComponent(warehouseId)}` : ''), 'orders')).map((order) => ({ ...order, routes: order.routes ?? [], collections: order.collections ?? [] })),
-  distance: (fromNodeId: string, toNodeId: string) =>
-    request<{ pathNodeIds: string[]; distanceMeters: number }>(
-      "/warehouse/distance",
-      "POST",
-      { fromNodeId, toNodeId },
-    ),
-  warehouse: async (warehouseId?: string) => (await request<{ warehouse: Warehouse }>("/warehouse" + (warehouseId ? `?warehouseId=${encodeURIComponent(warehouseId)}` : ''))).warehouse,
-  saveProduct: (body: unknown, id?: string) =>
-    request(id ? `/products/${id}` : "/products", id ? "PUT" : "POST", body),
-  createOrder: (body: unknown) => request<Order>("/orders", "POST", body),
-  calculate: (orderId: string) =>
-    request("/routes/calculate", "POST", { orderId }),
-  start: (id: string) => request(`/orders/${id}/collections`, "POST"),
+  createOrder: async (body: { code: string; items: Array<{ productId: string; requestedQuantity: number }> }) => {
+    const response = await request<{ order: Order }>("/orders", "POST", {
+      code: body.code,
+      items: body.items.map((item) => ({ productId: item.productId, quantity: item.requestedQuantity })),
+    });
+    return response.order;
+  },
+  calculate: async (orderId: string) => request<{ orderId: string; route: Route }>("/routes/calculate", "POST", { orderId }),
+  start: async (orderId: string, routeId: string) => {
+    const response = await request<{ collection: Collection }>("/collections", "POST", { orderId, routeId });
+    return response.collection;
+  },
   collect: (id: string, itemId: string, collectedQuantity: number) =>
     request(`/collections/${id}/items/${itemId}`, "PATCH", {
       collectedQuantity,
     }),
   complete: (id: string) => request(`/collections/${id}/complete`, "POST"),
-  cancel: (id: string) => request(`/orders/${id}/cancel`, "POST"),
+  history: () => list<unknown>("/collections/history", "collections"),
 };
