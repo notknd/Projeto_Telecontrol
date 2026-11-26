@@ -1,7 +1,7 @@
-# PRD.md — SmartPick
+# Guia de desenvolvimento — SmartPick
 
-> **Projeto:** Telecontrol / SmartPick  
-> **Objetivo deste documento:** orientar uma IA de programação a desenvolver o projeto de forma incremental, consistente, testável e alinhada à arquitetura definida.  
+> **Projeto:** Telecontrol / SmartPick
+> **Objetivo deste documento:** definir práticas de desenvolvimento incremental, testes e alinhamento à arquitetura do projeto.
 > **Idioma:** documentação e comunicação em português brasileiro; nomes de código, APIs e identificadores em inglês, salvo convenção existente no repositório.
 
 ---
@@ -166,7 +166,7 @@ Projeto_Telecontrol/
 │       └── Dockerfile
 ├── docs/
 │   ├── PRD.md
-│   ├── AI_DEVELOPMENT_GUIDE.md
+│   ├── DEVELOPMENT_GUIDE.md
 │   ├── ARCHITECTURE.md
 │   ├── API.md
 │   └── ALGORITHMS.md
@@ -503,7 +503,7 @@ Uma tarefa só está concluída quando:
 
 Se não for possível executar algum teste, informe explicitamente o motivo. Não declare que os testes passaram sem executá-los.
 
-## 16. Fluxo de trabalho obrigatório da IA
+## 16. Fluxo de desenvolvimento
 
 Para cada issue ou tarefa:
 
@@ -679,7 +679,7 @@ O MVP estará pronto para demonstração quando:
 - [ ] Não há credenciais reais versionadas.
 - [ ] As limitações conhecidas estão documentadas.
 
-## 20. Instrução final para a IA
+## 20. Diretrizes de implementação
 
 Priorize **correção, simplicidade, integração e verificabilidade**. Construa o SmartPick em etapas pequenas, mantendo o sistema executável ao longo do desenvolvimento.
 

@@ -1,5 +1,15 @@
 # Modelo do armazém
 
+## Ampliação de 10/11/2026
+
+O ambiente local possui três galpões independentes, com 12 posições de estoque em cada um. A ampliação de quatro vezes corresponde à capacidade: 3 → 12 posições por galpão, não à multiplicação de cada distância por quatro.
+
+`Warehouse` identifica cada galpão. Nós e pedidos possuem `warehouseId`; produtos pertencem ao galpão de sua posição. Cada galpão possui uma entrada e uma saída ativas, garantidas por índices parciais. O cálculo utiliza apenas o grafo do galpão do pedido. A criação de pedidos e a atualização de produtos rejeitam mistura ou transferência entre galpões.
+
+Os registros anteriores pertencem ao Galpão 1. Coordenadas e conexões originais foram preservadas; três novos corredores ampliam o layout até L-01. Pedidos pendentes foram complementados e suas rotas invalidadas quando houve inclusão de itens. Coletas em andamento, pedidos encerrados e seus históricos não foram reescritos.
+
+As decisões abaixo documentam a base anterior. A definição de três galpões e os vínculos por `warehouseId` substituem o limite anterior de um único layout.
+
 Este documento é a fonte de verdade da representação do armazém no MVP. Ele conclui a decisão de domínio da issue #2 e deve ser consultado antes de criar o schema Prisma (issue #6), o seed (issue #7), a estrutura executável do motor (issue #8) ou o mapa 2D.
 
 ## Decisões do MVP

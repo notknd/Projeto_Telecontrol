@@ -1,64 +1,53 @@
 # SmartPick — Projeto Telecontrol
 
-Aplicação para otimizar rotas de coleta de produtos em armazéns. A arquitetura usa Vue 3 no frontend, Fastify no backend principal, FastAPI no motor de rotas e PostgreSQL para persistência.
+Aplicação para organizar pedidos e apoiar a coleta em armazéns. O frontend Vue conversa com a API Fastify; a API acessa PostgreSQL via Prisma e chama o motor FastAPI para calcular rotas com Dijkstra e `nearest_neighbor`.
 
-## Estado atual
+## O que já dá para testar
 
-A fundação dos serviços, a modelagem do domínio, a persistência PostgreSQL, as APIs de produtos e pedidos e o fluxo de rota e coleta pela API estão disponíveis em `main`. O fluxo visual de seleção de pedido, exibição de rota e coleta ponta a ponta continua em desenvolvimento.
+A interface conectada consulta produtos e pedidos, calcula e persiste uma rota, inicia a coleta, registra a quantidade total de cada item e atualiza o histórico. A API também tem endpoints para cadastro de produtos e pedidos.
 
-## Ambiente da equipe
+O mapa 2D e as telas de cadastro ainda não foram adaptados à API consolidada. A tela atual apresenta a sequência de nós retornada pelo motor.
 
-Enquanto o MVP estiver em desenvolvimento, a branch de integração e execução é **`main`**. A prioridade é executar tudo localmente. O caminho mais simples é Docker Compose: ele cria PostgreSQL, motor, API e frontend no mesmo computador e aplica a migração e a seed de demonstração automaticamente.
+## Executar com Docker Compose
 
-Consulte o [guia de desenvolvimento](docs/DEVELOPMENT.md) para a instalação, execução, verificações e fluxo de trabalho no app ChatGPT para PC.
-
-## Execução local
-
-```powershell
-git switch main
+```bash
 docker compose up --build -d
-```
-
-Em seguida, confira:
-
-```powershell
-Invoke-RestMethod http://127.0.0.1:3000/health
-Invoke-RestMethod http://127.0.0.1:8000/health
-Start-Process http://127.0.0.1:5173
-```
-
-Abra `http://127.0.0.1:5173` no navegador. Use `docker compose down` para parar o ambiente. O fluxo nativo com `.\scripts\start-local.ps1` continua disponível para depuração; para ele, copie `.env.example` para `.env` e prepare o PostgreSQL local.
-
-Use `.\scripts\test-local.ps1` para executar a suíte nativa antes de abrir um pull request.
-
-Para validar a composição Docker já em execução, incluindo saúde dos quatro serviços, migração Prisma e seed idempotente, use:
-
-```powershell
-.\scripts\test-compose.ps1
-```
-
-Acrescente `-Build` para reconstruir as imagens antes da verificação.
-
-## Roteiro de demonstração local
-
-Para uma apresentação, execute os comandos abaixo na ordem indicada:
-
-```powershell
-docker compose up --build -d
-.\scripts\test-compose.ps1
 docker compose ps
 ```
 
-O primeiro comando inicia os quatro componentes no computador; o segundo comprova que o banco, a API, o motor e o frontend respondem, que a migração Prisma foi aplicada e que a seed pode rodar novamente sem duplicar dados. O terceiro mostra os contêineres ativos ao vivo.
+Abra o endereço definido em `WEB_PORT` no `.env`. A API e o motor usam as portas internas 3000 e 8000; o Compose encaminha o tráfego do navegador à API.
 
-Mostre no navegador `http://127.0.0.1:5173`, `http://127.0.0.1:3000/health` e `http://127.0.0.1:8000/health`. A documentação interativa do motor fica em `http://127.0.0.1:8000/docs`.
+Para parar sem apagar o banco:
 
-> A demonstração prova a infraestrutura integrada e a massa de dados versionada. O fluxo de negócio está disponível pela API; a interface visual completa de pedido → rota → coleta ainda é uma próxima etapa do MVP.
+```bash
+docker compose down
+```
 
-Antes de começar outra tarefa, atualize `main`. Um commit em outra branch — mesmo quando a issue correspondente estiver fechada — não integra automaticamente o MVP. O estado auditado e a ordem das próximas entregas estão em [docs/PROGRESS.md](docs/PROGRESS.md).
+## Execução nativa
 
-## Docker e publicação
+Copie `.env.example` para `.env`, inicie PostgreSQL e rode:
 
-`compose.yaml` é a forma reproduzível de executar o MVP local completo. Cloudflare não faz parte da arquitetura nem do fluxo desta branch.
+```bash
+npm --prefix services/api ci
+npm --prefix services/api run db:generate
+npm --prefix services/api run db:deploy
+npm --prefix services/api run db:seed
+npm --prefix apps/web ci
+```
 
-Consulte [a arquitetura](docs/ARCHITECTURE.md), [os contratos](docs/API.md) e [o plano](docs/IMPLEMENTATION_PLAN.md) antes de iniciar a próxima etapa.
+Inicie o motor, a API e o frontend em terminais separados:
+
+```bash
+cd services/engine && python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+npm --prefix services/api run dev
+npm --prefix apps/web run dev
+```
+
+## Verificações
+
+```bash
+npm --prefix services/api run build
+npm --prefix apps/web run build
+```
+
+Consulte [contratos da API](docs/API.md), [modelo de dados](docs/DATA_MODEL.md) e [desenvolvimento local](docs/DEVELOPMENT.md).

@@ -1,5 +1,9 @@
 # Desenvolvimento local
 
+## Atualização para a integração HTML
+
+Para esta branch, use primeiro o [README](../README.md) atualizado. A interface é funcional e consome somente `/api/v1`; configure `API_PROXY_TARGET` no processo Vite se o Node não estiver em `127.0.0.1:3000`. O comando `npm run dev` da API carrega `.env` da raiz. Prepare migrações/seed antes de iniciar. No Compose, o motor deixou de publicar porta no host: verifique-o com `docker compose exec engine python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8000/health').read())"`. As referências abaixo a abrir `/docs`/porta 8000 no host aplicam-se somente à execução nativa. A suíte de seed preserva dados operacionais, mesmo quando houver mais registros que os da demonstração inicial.
+
 Esta página define o fluxo oficial do SmartPick enquanto o MVP estiver em construção: tudo deve funcionar no computador local, sem Cloudflare, túnel ou serviço externo. A branch de integração é `main`; toda nova branch de tarefa deve partir dela. Docker Compose é o caminho recomendado para iniciar os quatro serviços juntos; a execução nativa existe para depuração.
 
 ## Pré-requisitos
@@ -202,12 +206,12 @@ Explique o limite com precisão: nesta etapa estão prontos os serviços, o banc
 
 O teste manual completo da API cobre: criar produto → criar pedido → calcular rota → iniciar coleta → registrar produtos → concluir pedido → consultar histórico. A prova integrada automatizada ainda valida infraestrutura, migração e seed; a validação ponta a ponta dos novos endpoints deve acompanhar a evolução do frontend.
 
-## Trabalho pelo app ChatGPT para PC
+## Desenvolvimento por issue
 
 1. Atualize a branch de integração: `git switch main` e `git pull origin main`.
 2. Crie sua branch a partir dela, por exemplo `feature/issue-15-dijkstra`.
-3. Abra uma conversa/tarefa para a issue e informe seu número e os arquivos envolvidos.
-4. Peça alterações restritas ao escopo da issue e revise o diff antes de commitar.
+3. Identifique os arquivos envolvidos e os critérios de aceite da issue.
+4. Implemente alterações restritas ao escopo da issue e revise o diff antes de commitar.
 5. Execute `.\scripts\test-local.ps1`, valide também `npm run db:validate` quando alterar o schema, envie sua branch e abra um PR para `main`.
 6. Use `Closes #NUMERO` somente quando o trabalho realmente cumprir os critérios de aceite.
 

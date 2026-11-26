@@ -1,6 +1,14 @@
 # Modelo de dados do MVP
 
+## Atualização da integração HTML (08/11/2026)
+
+A migração `20261108000100_route_history` acrescenta `OrderItem.sequence` (ordem convencional estável), `Route.inputFingerprint` (hash do grafo/itens/produtos usados) e `Route.conventionalDistanceMeters` (métrica histórica). Corrige a unicidade de `RouteStopItem`: o mesmo item pode participar de rotas históricas diferentes, com unicidade por `(routeStopId, orderItemId)`. Índices parciais garantem uma única rota vigente e uma única coleta em andamento por pedido.
+
+Confirmações são cumulativas e não podem retroceder; cancelar preserva quantidades coletadas e não devolve automaticamente estoque. As regras abaixo são aplicadas pela API transacional desta branch. Edição de itens de pedidos e edição visual do layout não fazem parte desta integração.
+
 Este documento define as entidades persistentes e suas regras antes do schema Prisma e da primeira migração. Ele atende à issue #4 e usa o [modelo do armazém](WAREHOUSE_MODEL.md) como dependência.
+
+A revisão visual adiciona, pela migração `20261108010000_conventional_path`, o campo opcional `Route.conventionalPathNodeIds` (JSON de IDs ordenados). Isso conserva o percurso convencional para exibição histórica; registros existentes permanecem nulos.
 
 ## Convenções gerais
 
