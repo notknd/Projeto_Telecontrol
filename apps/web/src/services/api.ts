@@ -44,7 +44,7 @@ const nodeFallback = (id: string): WarehouseNode => ({ id, code: id || "—", ty
 export const api = {
   // These endpoints are not part of the consolidated API yet. Keep the old view explicit about that.
   warehouses: async (): Promise<WarehouseOption[]> => { throw new Error("A API ainda não disponibiliza a lista de armazéns."); },
-  warehouse: async (_warehouseId?: string): Promise<Warehouse> => { throw new Error("A API ainda não disponibiliza o grafo do armazém."); },
+  warehouse: async (_warehouseId?: string): Promise<Warehouse> => (await request<{ warehouse: Warehouse }>("/warehouse")).warehouse,
   distance: async (_fromNodeId: string, _toNodeId: string): Promise<{ pathNodeIds: string[]; distanceMeters: number }> => { throw new Error("A API ainda não oferece consulta de distância entre posições."); },
   products: async (_warehouseId?: string) => (await list<Omit<Product, "warehouseNode"> & { warehouseNode?: WarehouseNode }>("/products", "products"))
     .map((product) => ({ ...product, warehouseNode: product.warehouseNode ?? nodeFallback(product.warehouseNodeId) })),
