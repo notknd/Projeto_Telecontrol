@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
-import { api, type Product, type Order, type Route, type Warehouse } from "./services/api";
+import { api, nodeFallback, type Collection, type HistoryEntry, type Order, type PersistedRoute, type Product, type Route, type Warehouse } from "./services/api";
 import WarehouseMap from "./components/WarehouseMap.vue";
 import WmsIcon from "./components/WmsIcon.vue";
 const tabs = [
@@ -18,6 +18,9 @@ const page = ref("dashboard"),
   notice = ref("");
 const products = ref<Product[]>([]),
   orders = ref<Order[]>([]),
+  historyEntries = ref<HistoryEntry[]>([]),
+  routesByOrder = ref<Record<string, Route>>({}),
+  collectionsByOrder = ref<Record<string, Collection>>({}),
   warehouse = ref<Warehouse>({ nodes: [], edges: [] });
 const selectedId = ref(""),
   search = ref(""),
@@ -27,17 +30,18 @@ const selected = computed(() =>
 );
 const route = computed(
   () =>
-    selected.value?.routes.find((r) =>
+    routesByOrder.value[selectedId.value] ?? selected.value?.routes.find((r) =>
       ["CALCULATED", "IN_USE", "COMPLETED"].includes(r.status),
     ) ?? selected.value?.routes[0],
 );
 const collection = computed(() =>
-  selected.value?.collections.find((c) => c.status === "IN_PROGRESS"),
+  [collectionsByOrder.value[selectedId.value], ...(selected.value?.collections ?? [])].find((c) => c?.status === "IN_PROGRESS"),
 );
 const stopForItem = (id: string) =>
-  route.value?.stops.find((stop) =>
-    stop.items.some((item) => item.orderItemId === id),
-  );
+  route.value?.stops.find((stop) => stop.items.some((item) => {
+    const orderItem = selected.value?.items.find((entry) => entry.id === id);
+    return item.orderItemId === id || item.orderItemId === orderItem?.productId;
+  }));
 const pending = computed(() =>
   orders.value.filter((o) => ["PENDING", "ROUTED"].includes(o.status)),
 );
@@ -45,18 +49,13 @@ const active = computed(() =>
   orders.value.filter((o) => o.status === "COLLECTING"),
 );
 const historySearch = ref("");
-const history = computed(() =>
-  orders.value.filter(
-    (o) =>
-      ["COMPLETED", "CANCELLED"].includes(o.status) &&
-      o.code.toLowerCase().includes(historySearch.value.toLowerCase()),
-  ),
-);
+const history = computed(() => historyEntries.value.filter((entry) => entry.order.code.toLowerCase().includes(historySearch.value.toLowerCase())));
+const nodeFor = (id: string) => warehouse.value.nodes.find((node) => node.id === id) ?? products.value.find((product) => product.warehouseNodeId === id)?.warehouseNode ?? nodeFallback(id);
 const filteredProducts = computed(() =>
   products.value.filter(
     (p) =>
       (!positionFilter.value || p.warehouseNodeId === positionFilter.value) &&
-      `${p.sku} ${p.name} ${p.warehouseNode.code}`
+      `${p.sku} ${p.name} ${p.warehouseNode?.code ?? p.warehouseNodeId}`
         .toLowerCase()
         .includes(search.value.toLowerCase()),
   ),
@@ -115,17 +114,13 @@ const productDraft = ref(blankProduct());
 const orderCodeInput = ref<HTMLInputElement | null>(null);
 const orderCode = ref(""),
   quantities = ref<Record<string, number>>({});
-const confirmation = ref(false),
-  dark = ref(false);
+const dark = ref(false);
 function toggleTheme() {
   dark.value = !dark.value;
   document.documentElement.dataset.theme = dark.value ? "dark" : "light";
 }
 async function refresh() {
-  const [p, o] = await Promise.all([
-    api.products(),
-    api.orders(),
-  ]);
+  const [p, o, h] = await Promise.all([api.products(), api.orders(), api.history()]);
   products.value = p;
   orders.value = o.map((order) => ({
     ...order,
@@ -144,9 +139,57 @@ async function refresh() {
       } as Product),
     })),
   }));
+  historyEntries.value = h;
+  const session = readSession();
+  const ordersById = new Map(orders.value.map((order) => [order.id, order]));
+  const loadedRoutes: Record<string, Route> = {};
+  const loadedCollections: Record<string, Collection> = {};
+  await Promise.all(orders.value.map(async (order) => {
+    const routeId = session.routes[order.id];
+    const collectionId = session.collections[order.id];
+    if (routeId) try { loadedRoutes[order.id] = normalizeRoute(await api.route(routeId), order); } catch { /* rota ainda indisponível */ }
+    if (collectionId) try { loadedCollections[order.id] = await api.collection(collectionId); } catch { /* coleta ainda indisponível */ }
+  }));
+  await Promise.all(h.map(async (entry) => {
+    if (loadedRoutes[entry.order.id]) return;
+    const order = ordersById.get(entry.order.id);
+    if (order) try { loadedRoutes[order.id] = normalizeRoute(await api.route(entry.routeId), order); } catch { /* rota histórica indisponível */ }
+  }));
+  routesByOrder.value = loadedRoutes;
+  collectionsByOrder.value = loadedCollections;
   if (!selected.value)
-    selectedId.value =
-      o.find((x) => x.status === "COLLECTING")?.id ?? o[0]?.id ?? "";
+    selectedId.value = orders.value.find((x) => x.status === "COLLECTING")?.id ?? orders.value[0]?.id ?? "";
+}
+type SessionCache = { routes: Record<string, string>; collections: Record<string, string> };
+function readSession(): SessionCache {
+  try {
+    const value = JSON.parse(localStorage.getItem("smartpick-session") ?? "{}");
+    return { routes: value.routes ?? {}, collections: value.collections ?? {} };
+  } catch { return { routes: {}, collections: {} }; }
+}
+function persistSession() {
+  try {
+    const session = readSession();
+    for (const [orderId, value] of Object.entries(routesByOrder.value)) session.routes[orderId] = value.id;
+    for (const [orderId, value] of Object.entries(collectionsByOrder.value)) session.collections[orderId] = value.id;
+    localStorage.setItem("smartpick-session", JSON.stringify(session));
+  } catch {
+    // The API remains the source of truth if browser storage is unavailable.
+  }
+}
+function normalizeRoute(raw: PersistedRoute, order: Order): Route {
+  return {
+    ...raw,
+    conventionalDistanceMeters: null,
+    conventionalPathNodeIds: null,
+    steps: raw.pathNodeIds.map((warehouseNodeId, index) => ({ warehouseNodeId, sequence: index + 1 })),
+    stops: raw.stops.map((stop) => ({
+      ...stop,
+      warehouseNodeId: stop.nodeId,
+      warehouseNode: nodeFor(stop.nodeId),
+      items: stop.productIds.map((productId) => ({ orderItemId: order.items.find((item) => item.productId === productId)?.id ?? productId })),
+    })),
+  };
 }
 async function perform(action: () => Promise<unknown>, message = "") {
   if (busy.value) return;
@@ -166,7 +209,14 @@ async function perform(action: () => Promise<unknown>, message = "") {
 function openOrder(o: Order, target = "route") {
   selectedId.value = o.id;
   page.value = target;
-  confirmation.value = false;
+}
+function openHistoryEntry(entry: HistoryEntry) {
+  const order = orders.value.find((candidate) => candidate.id === entry.order.id);
+  if (!order) {
+    error.value = "O pedido deste registro não está disponível na lista da API.";
+    return;
+  }
+  openOrder(order, "route");
 }
 function editProduct(p?: Product) {
   editingId.value = p?.id ?? "";
@@ -184,8 +234,8 @@ function editProduct(p?: Product) {
 }
 const saveProduct = () =>
   perform(async () => {
-    if (editingId.value) throw new Error("A edição de produtos ainda não está disponível na API.");
-    throw new Error("O cadastro exige uma posição do armazém exposta pela API.");
+    if (editingId.value) throw new Error("A API atual não oferece edição de produtos.");
+    await api.createProduct({ ...productDraft.value, category: productDraft.value.category.trim() || undefined });
     productDraft.value = blankProduct();
     editingId.value = "";
     await refresh();
@@ -215,18 +265,11 @@ const calculate = () =>
     const result = await api.calculate(selectedId.value);
     const current = orders.value.find((order) => order.id === selectedId.value);
     if (current) {
-      const raw = result.route as any;
-      const normalized = {
-        ...raw,
-        status: "CALCULATED",
-        steps: (raw.pathNodeIds ?? []).map((warehouseNodeId: string, index: number) => ({ warehouseNodeId, sequence: index + 1 })),
-        stops: (raw.stops ?? []).map((stop: any) => {
-          const node = products.value.find((product) => product.warehouseNodeId === stop.nodeId)?.warehouseNode ?? { id: stop.nodeId, code: stop.nodeId, type: "STORAGE", x: 0, y: 0, label: null, isActive: true };
-          return { warehouseNodeId: stop.nodeId, sequence: stop.sequence, warehouseNode: node, items: (stop.productIds ?? []).map((productId: string) => ({ orderItemId: current.items.find((item) => item.productId === productId)?.id ?? productId })) };
-        }),
-      } as Route;
+      const normalized = normalizeRoute(result.route, current);
+      routesByOrder.value[current.id] = normalized;
       current.routes = [normalized, ...current.routes.filter((route) => route.id !== normalized.id)];
       current.status = "ROUTED";
+      persistSession();
     }
   }, "Rota calculada e salva.");
 const start = () =>
@@ -235,6 +278,8 @@ const start = () =>
     if (!routeId) throw new Error("Calcule a rota antes de iniciar a coleta.");
     const result = await api.start(selectedId.value, routeId);
     const current = orders.value.find((order) => order.id === selectedId.value);
+    collectionsByOrder.value[selectedId.value] = result;
+    persistSession();
     if (current) {
       current.collections = [result, ...current.collections.filter((collection) => collection.id !== result.id)];
       current.status = "COLLECTING";
@@ -245,31 +290,49 @@ const start = () =>
   }, "Coleta iniciada.");
 const confirmItem = (id: string) =>
   perform(async () => {
-    const c = collection.value!;
-    const i = c.items.find((i) => i.orderItemId === id)!;
-    const result = await api.collect(c.id, i.id, i.requestedQuantity) as { item: { collectedQuantity: number; collectedAt?: string | null }; collectionStatus: string; orderStatus: string };
+    const c = collection.value;
+    if (!c) throw new Error("Não há coleta ativa para este pedido.");
+    const i = c.items.find((item) => item.orderItemId === id || selected.value?.items.find((orderItem) => orderItem.id === id)?.id === item.orderItemId);
+    if (!i) throw new Error("Item não encontrado na coleta.");
+    const result = await api.collect(c.id, i.id, i.requestedQuantity);
     i.collectedQuantity = result.item.collectedQuantity;
-    if (result.item.collectedAt) (i as any).collectedAt = result.item.collectedAt;
+    if (result.item.collectedAt) i.collectedAt = result.item.collectedAt;
     const current = orders.value.find((order) => order.id === selectedId.value);
-    if (current) current.status = result.orderStatus;
+    if (current) {
+      current.status = result.orderStatus;
+      const orderItem = current.items.find((item) => item.id === i.orderItemId);
+      if (orderItem) orderItem.collectedQuantity = result.item.collectedQuantity;
+    }
+    products.value = await api.products();
+    current?.items.forEach((item) => {
+      const product = products.value.find((candidate) => candidate.id === item.productId);
+      if (product) item.product = product;
+    });
+    const cachedCollection = collectionsByOrder.value[selectedId.value];
+    if (cachedCollection) cachedCollection.status = result.collectionStatus;
+    if (result.collectionStatus === "COMPLETED") {
+      c.status = "COMPLETED";
+      const currentRoute = routesByOrder.value[selectedId.value];
+      if (currentRoute) currentRoute.status = "COMPLETED";
+      historyEntries.value = await api.history();
+      page.value = "history";
+    }
   }, "Quantidade confirmada.");
 const finish = () =>
   perform(async () => {
-    const result = await api.complete(collection.value!.id) as { collectionId: string; completedAt: string };
+    if (!collection.value) throw new Error("Não há coleta ativa para concluir.");
+    const result = await api.complete(collection.value.id);
     const current = orders.value.find((order) => order.id === selectedId.value);
     if (current) {
       current.status = "COMPLETED";
-      const activeCollection = current.collections.find((item) => item.id === result.collectionId);
+      const activeCollection = collectionsByOrder.value[selectedId.value];
       if (activeCollection) { activeCollection.status = "COMPLETED"; activeCollection.completedAt = result.completedAt; }
-      const currentRoute = current.routes.find((item) => item.id === activeCollection?.routeId);
+      const currentRoute = routesByOrder.value[selectedId.value] ?? current.routes.find((item) => item.id === activeCollection?.routeId);
       if (currentRoute) currentRoute.status = "COMPLETED";
     }
+    historyEntries.value = await api.history();
     page.value = "history";
   }, "Coleta concluída e registrada no histórico.");
-const cancel = () =>
-  perform(async () => {
-    throw new Error("Cancelamento ainda não faz parte do contrato da API.");
-  });
 const collapsed = ref(false),
   positionFilter = ref(""),
   focusNode = ref("");
@@ -302,22 +365,6 @@ const finishedNodes = computed(
       )
       .map((s) => s.warehouseNodeId) ?? [],
 );
-const totals = computed(() =>
-  orders.value
-    .filter((o) => o.status === "COMPLETED")
-    .reduce(
-      (v, o) => {
-        const c = o.collections.find((c) => c.status === "COMPLETED");
-        const r = o.routes.find((r) => r.id === c?.routeId);
-        if (r?.conventionalDistanceMeters != null) {
-          v.conventional += r.conventionalDistanceMeters;
-          v.smart += r.totalDistanceMeters;
-        }
-        return v;
-      },
-      { conventional: 0, smart: 0 },
-    ),
-);
 const focusedProducts = computed(() =>
   products.value.filter((p) => p.warehouseNodeId === focusNode.value),
 );
@@ -336,20 +383,16 @@ function exportHistory() {
       .replace(/^[=+@\-]/, "'$&")
       .replace(/"/g, '""') +
     '"';
-  const rows = history.value.map((o) => {
-    const c =
-      o.collections.find((c) => c.status === "COMPLETED") ?? o.collections[0];
-    const r = o.routes.find((r) => r.id === c?.routeId) ?? o.routes[0];
+  const rows = history.value.map((entry) => {
+    const r = routesByOrder.value[entry.order.id];
     return [
-      o.code,
-      labels[o.status],
-      o.items.length,
+      entry.order.code,
+      labels.COMPLETED,
+      entry.itemCount,
       r?.totalDistanceMeters,
       r?.conventionalDistanceMeters,
-      c?.completedAt,
-      c?.completedAt
-        ? duration(Date.parse(c.completedAt) - Date.parse(c.startedAt))
-        : "",
+      entry.completedAt,
+      duration(Date.parse(entry.completedAt) - Date.parse(entry.startedAt)),
     ];
   });
   const blob = new Blob(
@@ -386,7 +429,6 @@ function shortcut(e: KeyboardEvent) {
     collection.value &&
     nextItem.value &&
     !busy.value &&
-    !confirmation.value &&
     !(e.target as HTMLElement).closest(
       "input,select,textarea,button,a,[contenteditable]",
     )
@@ -432,10 +474,7 @@ onUnmounted(() => {
               :class="{ active: page === t[0] }"
               :title="t[1]"
               :aria-current="page === t[0] ? 'page' : undefined"
-              @click="
-                page = t[0];
-                confirmation = false;
-              "
+              @click="page = t[0]"
             >
               <span class="nav-ico"><WmsIcon :name="t[2]" /></span
               ><span class="nav-text">{{ t[1] }}</span
@@ -528,19 +567,8 @@ onUnmounted(() => {
             </div>
             <div class="kpi-cell">
               <span class="kpi-head">Redução de deslocamento</span
-              ><strong class="kpi-val" :style="{ color: 'var(--green)' }">{{
-                totals.conventional
-                  ? number(
-                      ((totals.conventional - totals.smart) /
-                        totals.conventional) *
-                        100,
-                    ) + "%"
-                  : "—"
-              }}</strong
-              ><span class="kpi-sub"
-                >{{ number(totals.conventional - totals.smart) }} m economizados
-                nas coletas concluídas</span
-              >
+              ><strong class="kpi-val">—</strong
+              ><span class="kpi-sub">A API atual informa apenas a distância otimizada.</span>
             </div>
           </div>
           <div class="split-layout">
@@ -549,7 +577,7 @@ onUnmounted(() => {
                 <div>
                   <h2>Carteira de Pedidos de Separação</h2>
                   <p class="muted">
-                    Comparativo entre percurso convencional e rota otimizada
+                    Percurso otimizado calculado pela API
                   </p>
                 </div>
                 <span class="pill">{{ pending.length }} pedidos</span>
@@ -577,15 +605,15 @@ onUnmounted(() => {
                       </td>
                       <td class="mono">
                         {{
-                          o.routes?.[0]
-                            ? number(o.routes[0].totalDistanceMeters) + " m"
+                          routesByOrder[o.id]
+                            ? number(routesByOrder[o.id].totalDistanceMeters) + " m"
                             : "—"
                         }}
                       </td>
                       <td class="mono">
                         {{
-                          o.routes?.[0]?.conventionalDistanceMeters != null
-                            ? number(o.routes![0].conventionalDistanceMeters!) +
+                          routesByOrder[o.id]?.conventionalDistanceMeters != null
+                            ? number(routesByOrder[o.id].conventionalDistanceMeters!) +
                               " m"
                             : "—"
                         }}
@@ -643,13 +671,14 @@ onUnmounted(() => {
                     Expandir
                   </button>
                 </div>
-                <WarehouseMap
+                <WarehouseMap v-if="warehouse.nodes.length"
                   :warehouse="warehouse"
                   :route="route"
                   :products="products"
                   mini
                   @select="locate"
                 />
+                <p v-else class="pad muted">Layout visual preservado. O backend ainda não fornece os nós e conexões necessários para desenhar o mapa.</p>
                 <div class="pad">
                   <button class="btn light full" @click="page = 'map'">
                     Consultar Endereços
@@ -721,8 +750,8 @@ onUnmounted(() => {
                       <td>
                         <button
                           class="btn light"
-                          :disabled="busy"
-                          @click="editProduct(p)"
+                          disabled
+                          title="A API atual não oferece atualização de produto"
                         >
                           Editar
                         </button>
@@ -761,7 +790,7 @@ onUnmounted(() => {
                         >Peso (kg)<input
                           v-model.number="productDraft.weightKg"
                           type="number"
-                          min="0"
+                          min="0.001"
                           step="0.001"
                           required /></label
                       ><label
@@ -772,22 +801,13 @@ onUnmounted(() => {
                           step="1"
                           required /></label
                       ><label
-                        >Posição<select
+                        >ID da posição<input
                           aria-label="Posição"
                           v-model="productDraft.warehouseNodeId"
+                          list="warehouse-node-ids"
                           required
-                        >
-                          <option value="" disabled>Selecione</option>
-                          <option
-                            v-for="n in warehouse.nodes.filter(
-                              (n) => n.type === 'STORAGE',
-                            )"
-                            :key="n.id"
-                            :value="n.id"
-                          >
-                            {{ n.code }}
-                          </option>
-                        </select></label
+                          placeholder="UUID da posição"
+                        /><datalist id="warehouse-node-ids"><option v-for="p in products" :key="p.id" :value="p.warehouseNodeId">{{ p.warehouseNode.code }}</option></datalist></label
                       ><label class="checkbox"
                         ><input
                           v-model="productDraft.isActive"
@@ -797,8 +817,7 @@ onUnmounted(() => {
                       >
                     </div>
                     <p class="muted">
-                      Alterações invalidam rotas pendentes que utilizam este
-                      produto.
+                      Use o ID de uma posição de armazenamento já cadastrada.
                     </p>
                     <p v-if="error" role="alert" class="error">{{ error }}</p>
                     <div class="actions">
@@ -949,7 +968,6 @@ onUnmounted(() => {
                 aria-label="Pedido"
                 v-model="selectedId"
                 :disabled="busy"
-                @change="confirmation = false"
               >
                 <option value="" disabled>Selecione um pedido</option>
                 <option v-for="o in orders" :key="o.id" :value="o.id">
@@ -974,33 +992,9 @@ onUnmounted(() => {
                 @click="start"
               >
                 Iniciar coleta</button
-              ><button
-                v-if="
-                  ['PENDING', 'ROUTED', 'COLLECTING'].includes(selected.status)
-                "
-                class="btn danger"
-                :disabled="busy"
-                @click="confirmation = true"
-              >
-                Cancelar pedido
-              </button>
+              ><button v-if="['PENDING', 'ROUTED', 'COLLECTING'].includes(selected.status)" class="btn danger" disabled title="A API atual não oferece cancelamento de pedidos">Cancelar pedido</button>
             </div>
           </section>
-          <div v-if="confirmation" class="notice error">
-            Cancelar {{ selected?.code }}? Os itens já coletados e a baixa de
-            estoque serão preservados.
-            <div class="actions">
-              <button class="btn danger" :disabled="busy" @click="cancel">
-                Confirmar cancelamento</button
-              ><button
-                class="btn light"
-                :disabled="busy"
-                @click="confirmation = false"
-              >
-                Voltar
-              </button>
-            </div>
-          </div>
           <div v-if="page === 'active' && collection" class="banner">
             <div>
               <small>PRÓXIMO ITEM · TEMPO DECORRIDO {{ elapsed }}</small>
@@ -1038,7 +1032,7 @@ onUnmounted(() => {
                 <h2>Planta 2D do armazém</h2>
                 <span class="badge">{{ warehouse.nodes.length }} pontos</span>
               </div>
-              <WarehouseMap
+              <WarehouseMap v-if="warehouse.nodes.length"
                 :warehouse="warehouse"
                 :route="route"
                 :products="products"
@@ -1051,6 +1045,7 @@ onUnmounted(() => {
                 :done-nodes="finishedNodes"
                 @select="focusNode = $event"
               />
+              <p v-else class="pad muted">O mapa e a animação aguardam os dados reais do grafo do armazém na API.</p>
               <div v-if="route" class="easy-compare pad">
                 <h3>Comparação de percursos</h3>
                 <div class="bar-row">
@@ -1112,10 +1107,10 @@ onUnmounted(() => {
                 </p>
                 <template v-if="focusNode"
                   ><h3>
-                    {{ warehouse.nodes.find((n) => n.id === focusNode)?.code }}
+                    {{ nodeFor(focusNode).code }}
                   </h3>
                   <p>
-                    {{ warehouse.nodes.find((n) => n.id === focusNode)?.label }}
+                    {{ nodeFor(focusNode).label }}
                   </p>
                   <div
                     v-for="p in focusedProducts"
@@ -1203,8 +1198,7 @@ onUnmounted(() => {
                     >
                   </div>
                   <p v-else class="muted">
-                    Não existe rota convencional para a ordem dos itens neste
-                    grafo dirigido.
+                    A API não disponibiliza a métrica de percurso convencional.
                   </p></template
                 >
                 <p v-else class="empty">
@@ -1314,49 +1308,38 @@ onUnmounted(() => {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="o in history" :key="o.id">
+                  <tr v-for="o in history" :key="o.collectionId">
                     <td>
-                      <strong>{{ o.code }}</strong>
+                      <strong>{{ o.order.code }}</strong>
                     </td>
                     <td>
-                      <span :class="['badge', o.status]">{{
-                        labels[o.status]
+                      <span class="badge COMPLETED">{{
+                        labels.COMPLETED
                       }}</span>
                     </td>
                     <td>
                       {{
-                        o.routes[0]
-                          ? number(o.routes[0].totalDistanceMeters) + " m"
+                        routesByOrder[o.order.id]
+                          ? number(routesByOrder[o.order.id].totalDistanceMeters) + " m"
                           : "—"
                       }}
                     </td>
                     <td>
                       {{
-                        o.routes[0]?.conventionalDistanceMeters != null
-                          ? number(o.routes[0].conventionalDistanceMeters) +
+                        routesByOrder[o.order.id]?.conventionalDistanceMeters != null
+                          ? number(routesByOrder[o.order.id].conventionalDistanceMeters!) +
                             " m"
                           : "—"
                       }}
                     </td>
                     <td>
-                      {{
-                        o.collections[0]?.completedAt
-                          ? duration(
-                              Date.parse(o.collections[0].completedAt) -
-                                Date.parse(o.collections[0].startedAt),
-                            )
-                          : "—"
-                      }}
+                      {{ duration(Date.parse(o.completedAt) - Date.parse(o.startedAt)) }}
                     </td>
                     <td>
-                      {{
-                        o.collections[0]?.completedAt
-                          ? date(o.collections[0].completedAt)
-                          : "—"
-                      }}
+                      {{ date(o.completedAt) }}
                     </td>
                     <td>
-                      <button class="btn light" @click="openOrder(o)">
+                      <button class="btn light" @click="openHistoryEntry(o)">
                         Ver percurso
                       </button>
                     </td>
@@ -1364,7 +1347,7 @@ onUnmounted(() => {
                 </tbody>
               </table>
               <p v-if="!history.length" class="empty">
-                As coletas concluídas e os pedidos cancelados aparecerão aqui.
+                As coletas concluídas aparecerão aqui.
               </p>
             </div>
           </section></template
