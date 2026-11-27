@@ -18,6 +18,30 @@ Resposta de sucesso (`200`):
 {"status":"ok","service":"api"}
 ```
 
+## Grafo ativo do armazém
+
+`GET /api/v1/warehouse`
+
+Retorna os nós e as conexões ativas do layout único do armazém. A API lê os dados persistidos no PostgreSQL; nós inativos e arestas inativas ou ligadas a nós inativos não são incluídos. As coordenadas e distâncias são números em metros.
+
+Resposta de sucesso (`200`):
+
+```json
+{
+  "warehouse": {
+    "nodes": [
+      {"id":"UUID","code":"ENTRY-01","type":"ENTRY","x":0,"y":0,"label":"Entrada","isActive":true},
+      {"id":"UUID","code":"STORAGE-A-01","type":"STORAGE","x":3,"y":2,"label":"Prateleira A1","isActive":true}
+    ],
+    "edges": [
+      {"id":"UUID","fromNodeId":"UUID","toNodeId":"UUID","distanceMeters":5}
+    ]
+  }
+}
+```
+
+O frontend usa `nodes` para desenhar e identificar posições e `edges` para representar passagens transitáveis. As arestas são dirigidas; não se deve inferir uma conexão inversa quando ela não estiver presente.
+
 ## Cálculo público de rota
 
 `POST /api/v1/routes/calculate`

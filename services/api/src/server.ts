@@ -11,6 +11,8 @@ import { createPrismaProductDataSource, type ProductDataSource } from './routes/
 import { registerProductRoutes } from './routes/products.js';
 import { createPrismaOrderDataSource, type OrderDataSource } from './routes/order-data-source.js';
 import { registerOrderRoutes } from './routes/orders.js';
+import { createPrismaWarehouseDataSource, type WarehouseDataSource } from './routes/warehouse-data-source.js';
+import { registerWarehouseRoutes } from './routes/warehouse.js';
 
 export function buildServer(
   engineClient: EngineClient = createEngineClient(),
@@ -18,6 +20,7 @@ export function buildServer(
   productDataSource: ProductDataSource = createPrismaProductDataSource(),
   orderDataSource: OrderDataSource = createPrismaOrderDataSource(),
   collectionDataSource: CollectionDataSource = createPrismaCollectionDataSource(),
+  warehouseDataSource: WarehouseDataSource = createPrismaWarehouseDataSource(),
 ) {
   const server = Fastify({ logger: true });
   server.decorate('engineClient', engineClient);
@@ -28,6 +31,7 @@ export function buildServer(
   registerProductRoutes(server, productDataSource);
   registerOrderRoutes(server, orderDataSource);
   registerCollectionRoutes(server, collectionDataSource);
+  registerWarehouseRoutes(server, warehouseDataSource);
 
   return server;
 }
