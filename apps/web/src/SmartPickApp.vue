@@ -120,8 +120,9 @@ function toggleTheme() {
   document.documentElement.dataset.theme = dark.value ? "dark" : "light";
 }
 async function refresh() {
-  const [p, o, h] = await Promise.all([api.products(), api.orders(), api.history()]);
+  const [p, o, h, w] = await Promise.all([api.products(), api.orders(), api.history(), api.warehouse()]);
   products.value = p;
+  warehouse.value = w;
   orders.value = o.map((order) => ({
     ...order,
     items: order.items.map((item) => ({
@@ -801,13 +802,20 @@ onUnmounted(() => {
                           step="1"
                           required /></label
                       ><label
-                        >ID da posição<input
+                        >Posição<select
                           aria-label="Posição"
                           v-model="productDraft.warehouseNodeId"
-                          list="warehouse-node-ids"
                           required
-                          placeholder="UUID da posição"
-                        /><datalist id="warehouse-node-ids"><option v-for="p in products" :key="p.id" :value="p.warehouseNodeId">{{ p.warehouseNode.code }}</option></datalist></label
+                        >
+                          <option value="" disabled>Selecione uma posição</option>
+                          <option
+                            v-for="node in warehouse.nodes.filter((node) => node.type === 'STORAGE' && node.isActive)"
+                            :key="node.id"
+                            :value="node.id"
+                          >
+                            {{ node.code }}{{ node.label ? ` · ${node.label}` : '' }}
+                          </option>
+                        </select></label
                       ><label class="checkbox"
                         ><input
                           v-model="productDraft.isActive"
@@ -817,7 +825,7 @@ onUnmounted(() => {
                       >
                     </div>
                     <p class="muted">
-                      Use o ID de uma posição de armazenamento já cadastrada.
+                      Apenas posições de armazenamento ativas podem receber produtos.
                     </p>
                     <p v-if="error" role="alert" class="error">{{ error }}</p>
                     <div class="actions">
